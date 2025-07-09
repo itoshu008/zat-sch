@@ -93,20 +93,18 @@ function AppContent() {
   }, [currentGroup, users]);
 
   // 月送り／日送り
-  const handlePrevDate = () => setCurrentDate(d => {
-    const nd = new Date(d);
-    nd.setDate(nd.getDate() - 1);
-    return nd;
-  });
-  const handleNextDate = () => setCurrentDate(d => {
-    const nd = new Date(d);
-    nd.setDate(nd.getDate() + 1);
-    return nd;
-  });
-  const handleNowDate = () => {
-    const now = new Date();
-    setCurrentDate(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
-  };
+// 月送り／日送り
+const handlePrevDate = () => setCurrentDate(d => 
+  new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1)
+);
+const handleNextDate = () => setCurrentDate(d => 
+  new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)
+);
+const handleNowDate = () => {
+  const now = new Date();
+  setCurrentDate(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
+};
+
 
   // 月送り（ルーティングで切替）
   const handlePrevMonth = () => {

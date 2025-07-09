@@ -892,8 +892,8 @@ useEffect(() => {
                       boxSizing: "border-box",
                       zIndex: 10,
                     }}
-                  >{`${h}:00`}</th>
-                ))}
+                   >{`${h.toString().padStart(2, "0")}:00`}</th>
+))}
               </tr>
             </thead>
     <tbody>
