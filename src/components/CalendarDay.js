@@ -871,7 +871,7 @@ useEffect(() => {
                     fontSize: 15,
                   }}
                 >
-                  ユーザー＼時間
+                  ユーザー｜時間
                 </th>
                 {Array.from({ length: 24 }).map((_, h) => (
                   <th

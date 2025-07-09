@@ -766,21 +766,28 @@ export default function CalendarMonth({
               }}>
                 日付＼時間
               </th>
-              {Array.from({ length: 24 }).map((_, hour) => (
-                <th key={hour}
-                  colSpan={4}
-                  style={{
-                    minWidth: cellWidth * 4, maxWidth: cellWidth * 4, width: cellWidth * 4,
-                    color: "#357",
-                    borderRight: "2px solid #42a5f5",
-                    fontWeight: 700,
-                    fontSize: 14,
-                    textAlign: "center", padding: "8px 0",
-                    boxSizing: "border-box",
-                  }}>
-                  {`${String(hour).padStart(2, "0")}:00`}
-                </th>
-              ))}
+           {Array.from({ length: 24 }).map((_, hour) => (
+  <th
+    key={hour}
+    colSpan={4}
+    style={{
+      minWidth: cellWidth * 4,
+      maxWidth: cellWidth * 4,
+      width: cellWidth * 4,
+      color: "#357",
+      borderRight: "2px solid #42a5f5",
+      fontWeight: 700,
+      fontSize: 14,
+      textAlign: "center",
+      padding: "8px 0",
+      boxSizing: "border-box",
+      background: "#f1f8ff",  // 見やすさUP
+    }}
+  >
+    {`${String(hour).padStart(2, "0")}:00`}
+  </th>
+))}
+
             </tr>
           </thead>
           <tbody>
