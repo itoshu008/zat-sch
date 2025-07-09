@@ -4,7 +4,6 @@ import {
   collection, addDoc, deleteDoc, updateDoc, onSnapshot, doc, writeBatch
 } from "firebase/firestore";
 
-// このコンポーネントはユーザー管理とグループ管理の両方の機能を含んでいます
 export default function GroupSettings({ onClose }) {
   const [tab, setTab] = useState("user");
   const [name, setName] = useState("");
@@ -12,14 +11,19 @@ export default function GroupSettings({ onClose }) {
   const [selectedGroupId, setSelectedGroupId] = useState("");
   const [users, setUsers] = useState([]);
   const [newGroupName, setNewGroupName] = useState("");
-  const [editingUserOrder, setEditingUserOrder] = useState(null); // ユーザーの順番変更モード
-  const [isReorderingGroups, setIsReorderingGroups] = useState(false); // ★ グループの順番変更モード
+  const [editingUserOrder, setEditingUserOrder] = useState(null);
+  const [isReorderingGroups, setIsReorderingGroups] = useState(false);
 
-  // グループ取得＆orderで並べる
+  // ★追加: ユーザー名・グループ名編集中のid・値
+  const [editingUserId, setEditingUserId] = useState(null);
+  const [editingUserName, setEditingUserName] = useState("");
+  const [editingGroupId, setEditingGroupId] = useState(null);
+  const [editingGroupName, setEditingGroupName] = useState("");
+
+  // --- グループ取得 ---
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "groups"), snap => {
       let arr = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      
       const batch = writeBatch(db);
       let needsUpdate = false;
       arr.forEach((g, i) => {
@@ -30,10 +34,8 @@ export default function GroupSettings({ onClose }) {
         }
       });
       if(needsUpdate) batch.commit();
-
       arr.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       setGroups(arr);
-
       if (arr.length > 0 && !selectedGroupId) {
         setSelectedGroupId(arr[0].id);
       } else if (arr.length === 0) {
@@ -43,7 +45,7 @@ export default function GroupSettings({ onClose }) {
     return () => unsub();
   }, [selectedGroupId]);
 
-  // ユーザー取得
+  // --- ユーザー取得 ---
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "users"), snap => {
       setUsers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -51,12 +53,11 @@ export default function GroupSettings({ onClose }) {
     return () => unsub();
   }, []);
 
-  // --- ユーザー ---
+  // --- ユーザー追加 ---
   async function handleAddUser() {
     if (!name.trim() || !selectedGroupId) return;
     const groupUsers = users.filter(u => u.groupId === selectedGroupId);
     const orderMax = groupUsers.length > 0 ? Math.max(...groupUsers.map(u => u.order ?? 0)) : 0;
-    
     await addDoc(collection(db, "users"), {
       name: name.trim(),
       groupId: selectedGroupId,
@@ -76,12 +77,9 @@ export default function GroupSettings({ onClose }) {
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     const idx = groupUsers.findIndex(u => u.id === userId);
     const swapIdx = idx + direction;
-
     if (swapIdx < 0 || swapIdx >= groupUsers.length) return;
-
     const userA = groupUsers[idx];
     const userB = groupUsers[swapIdx];
-    
     const batch = writeBatch(db);
     batch.update(doc(db, "users", userA.id), { order: userB.order });
     batch.update(doc(db, "users", userB.id), { order: userA.order });
@@ -91,33 +89,27 @@ export default function GroupSettings({ onClose }) {
   async function handleMoveUserGroup(userId, newGroupId) {
     const groupUsers = users.filter(u => u.groupId === newGroupId);
     const orderMax = groupUsers.length > 0 ? Math.max(...groupUsers.map(u => u.order ?? 0)) : 0;
-
     await updateDoc(doc(db, "users", userId), {
       groupId: newGroupId,
       order: orderMax + 1
     });
   }
 
-  // --- グループ ---
+  // --- グループ追加 ---
   async function handleAddGroup() {
     if (!newGroupName.trim()) return;
     await addDoc(collection(db, "groups"), { name: newGroupName.trim(), order: groups.length });
     setNewGroupName("");
   }
 
-  // ★ 修正：グループ削除時のロジック
   async function handleDeleteGroup(id) {
-    // グループに所属するユーザーがいないかチェック
     const usersInGroup = users.filter(u => u.groupId === id);
     if (usersInGroup.length > 0) {
       alert("所属するユーザーがいるため、このグループは削除できません。\n先にユーザーを別のグループに移動または削除してください。");
-      return; // 処理を中断
+      return;
     }
-
     if (!window.confirm("このグループを削除しますか？")) return;
-    
     await deleteDoc(doc(db, "groups", id));
-
     const remainingGroups = groups.filter(g => g.id !== id);
     if (remainingGroups.length > 0) {
         setSelectedGroupId(remainingGroups[0].id);
@@ -125,20 +117,53 @@ export default function GroupSettings({ onClose }) {
         setSelectedGroupId("");
     }
   }
-  
+
   async function handleMoveGroupOrder(idx, direction) {
     const newIndex = idx + direction;
     if (newIndex < 0 || newIndex >= groups.length) return;
-
     const g1 = groups[idx];
     const g2 = groups[newIndex];
-
     const batch = writeBatch(db);
     batch.update(doc(db, "groups", g1.id), { order: g2.order });
     batch.update(doc(db, "groups", g2.id), { order: g1.order });
     await batch.commit();
   }
 
+  // --- ユーザー名インライン編集 ---
+  function startEditUserName(user) {
+    setEditingUserId(user.id);
+    setEditingUserName(user.name);
+  }
+  function handleUserNameInputChange(e) {
+    setEditingUserName(e.target.value);
+  }
+  async function finishEditUserName(user) {
+    const trimmed = editingUserName.trim();
+    if (!trimmed || trimmed === user.name) {
+      setEditingUserId(null);
+      return;
+    }
+    await updateDoc(doc(db, "users", user.id), { name: trimmed });
+    setEditingUserId(null);
+  }
+
+  // --- グループ名インライン編集 ---
+  function startEditGroupName(group) {
+    setEditingGroupId(group.id);
+    setEditingGroupName(group.name);
+  }
+  function handleGroupNameInputChange(e) {
+    setEditingGroupName(e.target.value);
+  }
+  async function finishEditGroupName(group) {
+    const trimmed = editingGroupName.trim();
+    if (!trimmed || trimmed === group.name) {
+      setEditingGroupId(null);
+      return;
+    }
+    await updateDoc(doc(db, "groups", group.id), { name: trimmed });
+    setEditingGroupId(null);
+  }
 
   return (
     <div className="modal-backdrop" onClick={onClose} style={{
@@ -193,7 +218,7 @@ export default function GroupSettings({ onClose }) {
                     width: 170, padding: "6px 12px", borderRadius: 6,
                     border: "1.2px solid #bbb", fontSize: 16
                   }}
-                  placeholder="例：伊藤 太郎"
+                  placeholder="例：雑踏　太郎"
                 />
                 <label style={{ fontWeight: 700, marginLeft: 10 }}>グループ</label>
                 <select
@@ -228,7 +253,32 @@ export default function GroupSettings({ onClose }) {
                       fontWeight: 700, fontSize: 15, color: "#2a58ad",
                       margin: "12px 0 4px 0", borderLeft: "5px solid #e3edff", paddingLeft: 10
                     }}>
-                      {group.name}
+                      {editingGroupId === group.id ? (
+                        <input
+                          autoFocus
+                          value={editingGroupName}
+                          onChange={handleGroupNameInputChange}
+                          onBlur={() => finishEditGroupName(group)}
+                          onKeyDown={e => {
+                            if (e.key === "Enter") finishEditGroupName(group);
+                            if (e.key === "Escape") setEditingGroupId(null);
+                          }}
+                          style={{
+                            fontSize: 15, fontWeight: 700,
+                            border: "2px solid #1976d2", borderRadius: 5,
+                            padding: "2px 12px", marginRight: 4, background: "#f6f9ff",
+                            outline: "none", color: "#2a58ad"
+                          }}
+                        />
+                      ) : (
+                        <span
+                          style={{ cursor: "pointer" }}
+                          onClick={() => startEditGroupName(group)}
+                          title="クリックしてグループ名を編集"
+                        >
+                          {group.name}
+                        </span>
+                      )}
                       {!isEditing ? (
                         <button
                           style={{
@@ -260,7 +310,36 @@ export default function GroupSettings({ onClose }) {
                         ) : (
                           usersInGroup.map((u, i) => (
                             <tr key={u.id} style={{ background: "#f8fbff", boxShadow: "0 1px 3px rgba(0,0,0,0.04)"}}>
-                              <td style={{ padding: "8px 12px", width: 120, fontSize: 15 }}>{u.name}</td>
+                              <td style={{ padding: "8px 12px", width: 120, fontSize: 15 }}>
+                                {editingUserId === u.id ? (
+                                  <input
+                                    autoFocus
+                                    value={editingUserName}
+                                    onChange={handleUserNameInputChange}
+                                    onBlur={() => finishEditUserName(u)}
+                                    onKeyDown={e => {
+                                      if (e.key === "Enter") finishEditUserName(u);
+                                      if (e.key === "Escape") setEditingUserId(null);
+                                    }}
+                                    style={{
+                                      fontSize: 15,
+                                      border: "2px solid #1976d2",
+                                      borderRadius: 5,
+                                      padding: "2px 8px",
+                                      background: "#f7fbff",
+                                      outline: "none"
+                                    }}
+                                  />
+                                ) : (
+                                  <span
+                                    style={{ cursor: "pointer" }}
+                                    onClick={() => startEditUserName(u)}
+                                    title="クリックして氏名を編集"
+                                  >
+                                    {u.name}
+                                  </span>
+                                )}
+                              </td>
                               <td style={{ padding: "8px 12px", width: 90 }}>
                                 {isEditing ? (
                                   <>
@@ -333,7 +412,6 @@ export default function GroupSettings({ onClose }) {
                       disabled={!newGroupName.trim()}
                     >追加</button>
                 </div>
-                {/* ★ 順番変更ボタンの切り替え */}
                 {!isReorderingGroups ? (
                     <button
                         style={{ padding: "7px 22px", fontSize: 15, borderRadius: 8, border: "1px solid #1976d2", background: "#fff", color: "#1976d2", cursor: "pointer" }}
@@ -356,9 +434,35 @@ export default function GroupSettings({ onClose }) {
                 <tbody>
                   {groups.map((g, i) => (
                     <tr key={g.id} style={{ borderBottom: "1px solid #eee" }}>
-                      <td style={{ padding: "8px", fontSize: 16 }}>{g.name}</td>
+                      <td style={{ padding: "8px", fontSize: 16 }}>
+                        {editingGroupId === g.id ? (
+                          <input
+                            autoFocus
+                            value={editingGroupName}
+                            onChange={handleGroupNameInputChange}
+                            onBlur={() => finishEditGroupName(g)}
+                            onKeyDown={e => {
+                              if (e.key === "Enter") finishEditGroupName(g);
+                              if (e.key === "Escape") setEditingGroupId(null);
+                            }}
+                            style={{
+                              fontSize: 15, fontWeight: 700,
+                              border: "2px solid #1976d2", borderRadius: 5,
+                              padding: "2px 12px", background: "#f6f9ff",
+                              outline: "none", color: "#2a58ad"
+                            }}
+                          />
+                        ) : (
+                          <span
+                            style={{ cursor: "pointer" }}
+                            onClick={() => startEditGroupName(g)}
+                            title="クリックしてグループ名を編集"
+                          >
+                            {g.name}
+                          </span>
+                        )}
+                      </td>
                       <td style={{ textAlign: "right", padding: "4px 8px" }}>
-                        {/* ★ 順番変更モードの時だけ表示 */}
                         {isReorderingGroups && (
                           <>
                             <button

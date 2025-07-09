@@ -141,7 +141,7 @@ export default function UserGroupModal({ onClose }) {
                     width: 170, padding: "6px 12px", borderRadius: 6,
                     border: "1.2px solid #bbb", fontSize: 16
                   }}
-                  placeholder="例：伊藤 太郎"
+                  placeholder="例：雑踏　太郎"
                 />
                 <label style={{ fontWeight: 700, marginLeft: 10 }}>グループ</label>
                 <select

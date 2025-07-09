@@ -899,361 +899,222 @@ export default function CalendarDay({
                 ))}
               </tr>
             </thead>
-            <tbody>
-              {orderedUsers
-                .filter(Boolean)
-                .map((user, userIdx) => (
-                  <tr key={user.id} style={{ height: cellSize.rowHeight }}>
-                    <td
-                      style={{
-                        minWidth: cellSize.userColWidth,
-                        maxWidth: cellSize.userColWidth,
-                        background: "#fff",
-                        borderRight: "2.5px solid #1565c0",
-                        fontWeight: 600,
-                        fontSize: 15,
-                        position: "sticky",
-                        left: 0,
-                        zIndex: 10,
-                        textAlign: "center",
-                        padding: 0,
-                        borderTop: "1px solid #eee",
-                        borderBottom: "1px solid #eee",
-                        boxSizing: "border-box",
-                        verticalAlign: "middle",
-                        letterSpacing: 1.5,
-                      }}
-                    >
-                      {user.name}
-                    </td>
-                    {Array.from({ length: 96 }).map((_, idx) => {
-                      const isHourBorder = (idx + 1) % 4 === 0;
-                      const isSelected = selectedCellSet.has(getCellKey(String(user.id), idx));
-                      const evt = events.find(e => String(e.userId) === String(user.id) && Number(e.startIdx) === idx);
-                      let showGhost = false;
-                      if (
-                        ghostBar &&
-                        ghostBar.userIdx === userIdx &&
-                        ghostBar.startIdx === idx
-                      ) {
-                        showGhost = true;
-                      }
-                      let showPasteGhost = false;
-                      if (
-                        pasteMode &&
-                        pasteGhost &&
-                        pasteGhost.userIdx === userIdx &&
-                        pasteGhost.idx === idx &&
-                        clipboard
-                      ) {
-                        showPasteGhost = true;
-                      }
-                      return (
-                        <td
-                          key={idx}
-                          className={`calendar-td${isSelected ? " selected-td" : ""}`}
-                          style={{
-                            width: cellSize.cellWidth,
-                            minWidth: cellSize.cellWidth,
-                            maxWidth: cellSize.cellWidth,
-                            height: cellSize.rowHeight,
-                            borderRight: isHourBorder ? "1px dashed #42a5f5" : "1px solid #eee",
-                            borderTop: "1px solid #eee",
-                            borderBottom: "1px solid #eee",
-                            background: isSelected ? "#b2ebf2" : "#fff",
-                            boxSizing: "border-box",
-                            position: "relative",
-                            padding: 0,
-                            margin: 0,
-                            cursor: pasteMode ? "crosshair" : "pointer",
-                            overflow: "visible",
-                          }}
-                          data-idx={idx}
-                          data-useridx={userIdx}
-                          onClick={e => {
-                            if (e.target.closest('.event-bar')) return;
-                            if (pasteMode && showPasteGhost) {
-                              handlePasteAtCell(userIdx, idx);
-                            } else {
-                              handleCellClick(e);
-                            }
-                          }}
-                          onMouseDown={handleCellMouseDown}
-                          onMouseEnter={handleCellMouseEnter}
-                          onDoubleClick={e => {
-                            if (!evt && !pasteMode) {
-                              handleCellDoubleClick(user.id, idx);
-                            }
-                          }}
-                        >
-                          {isToday && idx === nowCellIdx && (
-                            <div style={{
-                              position: "absolute",
-                              left: 0,
-                              top: 0,
-                              bottom: 0,
-                              width: 2,
-                              background: "#e53935",
-                              zIndex: 12,
-                              borderRadius: 2
-                            }} />
-                          )}
+        <tbody>
+  {orderedUsers
+    .filter(Boolean)
+    .map((user, userIdx) => (
+      <tr
+        key={user.id}
+        style={{
+          height: cellSize.rowHeight,
+          position: "relative", // これ重要（tr relative指定）
+        }}
+      >
+        {/* --- ユーザー名セル --- */}
+        <td
+          style={{
+            minWidth: cellSize.userColWidth,
+            maxWidth: cellSize.userColWidth,
+            background: "#fff",
+            borderRight: "2.5px solid #1565c0",
+            fontWeight: 600,
+            fontSize: 15,
+            position: "sticky",
+            left: 0,
+            zIndex: 30,  // これが最上層に
+            textAlign: "center",
+            padding: 0,
+            borderTop: "1px solid #eee",
+            borderBottom: "1px solid #eee",
+            boxSizing: "border-box",
+            verticalAlign: "middle",
+            letterSpacing: 1.5,
+          }}
+        >
+          {user.name}
+        </td>
+        {/* --- 96セル描画 --- */}
+        {Array.from({ length: 96 }).map((_, idx) => {
+          const isHourBorder = (idx + 1) % 4 === 0;
+          const isSelected = selectedCellSet.has(getCellKey(String(user.id), idx));
+          // イベントバーはtd内では出さない
+          return (
+            <td
+              key={idx}
+              className={`calendar-td${isSelected ? " selected-td" : ""}`}
+              style={{
+                width: cellSize.cellWidth,
+                minWidth: cellSize.cellWidth,
+                maxWidth: cellSize.cellWidth,
+                height: cellSize.rowHeight,
+                borderRight: isHourBorder ? "1px dashed #42a5f5" : "1px solid #eee",
+                borderTop: "1px solid #eee",
+                borderBottom: "1px solid #eee",
+                background: isSelected ? "#b2ebf2" : "#fff",
+                boxSizing: "border-box",
+                position: "relative",
+                padding: 0,
+                margin: 0,
+                cursor: pasteMode ? "crosshair" : "pointer",
+                overflow: "visible",
+              }}
+              data-idx={idx}
+              data-useridx={userIdx}
+              onClick={e => {
+                if (e.target.closest('.event-bar')) return;
+                if (pasteMode &&
+                    pasteGhost &&
+                    pasteGhost.userIdx === userIdx &&
+                    pasteGhost.idx === idx &&
+                    clipboard) {
+                  handlePasteAtCell(userIdx, idx);
+                } else {
+                  handleCellClick(e);
+                }
+              }}
+              onMouseDown={handleCellMouseDown}
+              onMouseEnter={handleCellMouseEnter}
+              onDoubleClick={e => {
+                if (!pasteMode) {
+                  handleCellDoubleClick(user.id, idx);
+                }
+              }}
+            >
+              {isToday && idx === nowCellIdx && (
+                <div style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 2,
+                  background: "#e53935",
+                  zIndex: 12,
+                  borderRadius: 2
+                }} />
+              )}
+              {/* イベントバーはtr内絶対配置なのでここには描画しない */}
+            </td>
+          );
+        })}
 
-                          {evt && (
-                            <div
-                              className="event-bar"
-                              style={{
-                                position: "absolute",
-                                left: 0,
-                                top: 3,
-                                height: cellSize.rowHeight - 6,
-                                width: Math.max(0, (evt.endIdx - evt.startIdx + 1) * cellSize.cellWidth - 2),
-                                background: evt.color,
-                                color: "#fff",
-                                fontWeight: 600,
-                                display: "flex",
-                                alignItems: "center",
-                                borderRadius: 7,
-                                border: selectedEventId === evt.id
-                                  ? "3px solid #00A0FF"
-                                  : isEventOverlapping(evt, events)
-                                    ? "2px solid #e53935"
-                                    : "1px solid #888",
-                                zIndex: selectedEventId === evt.id ? 11 : 10,
-                                cursor: dragMode ? "grabbing" : "pointer",
-                                opacity: dragMode && moveInfoRef.current && moveInfoRef.current.event.id === evt.id ? 0.65 : 1,
-                                boxShadow: selectedEventId === evt.id
-                                  ? "0 0 0 2.5px #00A0FF, 0 2px 12px 2px #00A0FF66"
-                                  : "0 2px 5px #3331",
-                                outline: selectedEventId === evt.id ? "2.5px solid #0072C6" : "none",
-                                boxSizing: "content-box",
-                                overflow: "visible",
-                                touchAction: "none"
-                              }}
-                              tabIndex={0}
-                              onClick={e => {
-                                e.stopPropagation();
-                                setSelectedEventId(evt.id);
-                                setEditEvent(null);
-                                setSelectedCells([]);
-                              }}
-                              onMouseDown={e => {
-                                if (e.button !== 0) return;
-                                e.stopPropagation();
+        {/* --- ここでtrの最後に絶対配置イベントバー --- */}
+        {events
+          .filter(e => String(e.userId) === String(user.id))
+          .map(evt => (
+            <div
+              key={evt.id}
+              className="event-bar"
+              style={{
+                position: "absolute",
+                left: cellSize.userColWidth + evt.startIdx * cellSize.cellWidth,
+                top: 3,
+                height: cellSize.rowHeight - 6,
+                width: Math.max(0, (evt.endIdx - evt.startIdx + 1) * cellSize.cellWidth - 2),
+                background: evt.color,
+                color: "#fff",
+                fontWeight: 600,
+                display: "flex",
+                alignItems: "center",
+                borderRadius: 7,
+                border: selectedEventId === evt.id
+                  ? "3px solid #00A0FF"
+                  : isEventOverlapping(evt, events)
+                    ? "2px solid #e53935"
+                    : "1px solid #888",
+                zIndex: selectedEventId === evt.id ? 21 : 20, // ユーザー名セルより下（z-index: 30 > 21）
+                cursor: dragMode ? "grabbing" : "pointer",
+                opacity: dragMode && moveInfoRef.current && moveInfoRef.current.event.id === evt.id ? 0.65 : 1,
+                boxShadow: selectedEventId === evt.id
+                  ? "0 0 0 2.5px #00A0FF, 0 2px 12px 2px #00A0FF66"
+                  : "0 2px 5px #3331",
+                outline: selectedEventId === evt.id ? "2.5px solid #0072C6" : "none",
+                boxSizing: "content-box",
+                overflow: "visible",
+                pointerEvents: "auto"
+              }}
+              tabIndex={0}
+              onClick={e => {
+                e.stopPropagation();
+                setSelectedEventId(evt.id);
+                setEditEvent(null);
+                setSelectedCells([]);
+              }}
+              onMouseDown={e => {
+                if (e.button !== 0) return;
+                e.stopPropagation();
 
-                                const dragStarted = { current: false };
-                                let startX = e.clientX, startY = e.clientY;
+                const dragStarted = { current: false };
+                let startX = e.clientX, startY = e.clientY;
 
-                                function onMouseMove(me) {
-                                  if (dragStarted.current) return;
-                                  const dx = Math.abs(me.clientX - startX);
-                                  const dy = Math.abs(me.clientY - startY);
-                                  if (dx > 3 || dy > 3) {
-                                    dragStarted.current = true;
-                                    handleBarMouseDown(evt, "move", e, user.id, userIdx);
-                                    cleanup();
-                                  }
-                                }
-                                function onMouseUp() {
-                                  cleanup();
-                                  if (!dragStarted.current) {
-                                    setSelectedEventId(evt.id);
-                                    setEditEvent(null);
-                                    setSelectedCells([]);
-                                  }
-                                }
-                                function cleanup() {
-                                  document.removeEventListener("mousemove", onMouseMove);
-                                  document.removeEventListener("mouseup", onMouseUp);
-                                }
-                                document.addEventListener("mousemove", onMouseMove);
-                                document.addEventListener("mouseup", onMouseUp);
-                              }}
-                              onTouchStart={e => {
-                                if (!e.touches || e.touches.length !== 1) return;
-                                e.stopPropagation();
+                function onMouseMove(me) {
+                  if (dragStarted.current) return;
+                  const dx = Math.abs(me.clientX - startX);
+                  const dy = Math.abs(me.clientY - startY);
+                  if (dx > 3 || dy > 3) {
+                    dragStarted.current = true;
+                    handleBarMouseDown(evt, "move", e, user.id, userIdx);
+                    cleanup();
+                  }
+                }
+                function onMouseUp() {
+                  cleanup();
+                  if (!dragStarted.current) {
+                    setSelectedEventId(evt.id);
+                    setEditEvent(null);
+                    setSelectedCells([]);
+                  }
+                }
+                function cleanup() {
+                  document.removeEventListener("mousemove", onMouseMove);
+                  document.removeEventListener("mouseup", onMouseUp);
+                }
+                document.addEventListener("mousemove", onMouseMove);
+                document.addEventListener("mouseup", onMouseUp);
+              }}
+              onDoubleClick={e => {
+                e.stopPropagation();
+                openEditTab(evt);
+              }}
+              onContextMenu={e => {
+                e.preventDefault();
+                e.stopPropagation();
+                openEditTab(evt);
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 13,
+                  paddingLeft: 7,
+                  paddingRight: 7,
+                  flex: 1,
+                  textAlign: "center",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  position: "relative",
+                }}
+              >
+                {evt.title}
+                {isEventOverlapping(evt, events) && (
+                  <span
+                    style={{
+                      marginLeft: 6,
+                      color: "#fff200",
+                      fontWeight: 900,
+                      fontSize: 15,
+                      verticalAlign: "middle",
+                      textShadow: "1px 1px 2px #e53935,0 0 5px #fff"
+                    }}
+                    title="重複イベント！"
+                  >⚠</span>
+                )}
+              </span>
+            </div>
+          ))}
+      </tr>
+    ))}
+</tbody>
 
-                                const dragStarted = { current: false };
-                                const touch = e.touches[0];
-                                const startX = touch.clientX, startY = touch.clientY;
-                                function onTouchMove(te) {
-                                  const t = te.touches[0];
-                                  const dx = Math.abs(t.clientX - startX);
-                                  const dy = Math.abs(t.clientY - startY);
-                                  if (!dragStarted.current && (dx > 5 || dy > 5)) {
-                                    dragStarted.current = true;
-                                    handleBarMouseDown(evt, "move", e, user.id, userIdx);
-                                    cleanup();
-                                  }
-                                }
-                                function onTouchEnd() {
-                                  cleanup();
-                                  if (!dragStarted.current) {
-                                    setSelectedEventId(evt.id);
-                                    setEditEvent(null);
-                                    setSelectedCells([]);
-                                  }
-                                }
-                                function cleanup() {
-                                  document.removeEventListener("touchmove", onTouchMove);
-                                  document.removeEventListener("touchend", onTouchEnd);
-                                }
-                                document.addEventListener("touchmove", onTouchMove, { passive: false });
-                                document.addEventListener("touchend", onTouchEnd);
-                              }}
-                              onDoubleClick={e => {
-                                e.stopPropagation();
-                                openEditTab(evt);
-                              }}
-                              onContextMenu={e => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                openEditTab(evt);
-                              }}
-                            >
-                              {/* 左リサイズ */}
-                              <div
-                                style={{
-                                  width: 9, height: "100%",
-                                  borderRadius: "7px 0 0 7px",
-                                  background: "rgba(255,255,255,0.13)",
-                                  cursor: "ew-resize",
-                                  alignSelf: "stretch"
-                                }}
-                                onMouseDown={e => handleBarMouseDown(evt, "left", e, user.id, userIdx)}
-                                onTouchStart={e => handleBarMouseDown(evt, "left", e, user.id, userIdx)}
-                                onContextMenu={e => e.preventDefault()}
-                              />
-                              {/* 中央タイトル */}
-                              <Tooltip
-                                title={
-                                  <div>
-                                    <div style={{ fontWeight: 600, fontSize: 15 }}>{evt.title}</div>
-                                    <div>
-                                      時間: {formatTime(evt.startIdx)}～{formatTime(evt.endIdx + 1)}
-                                    </div>
-                                  </div>
-                                }
-                                arrow
-                                placement="top"
-                                enterDelay={100}
-                                disableInteractive
-                              >
-                                <span
-                                  style={{
-                                    fontSize: 13,
-                                    paddingLeft: 7,
-                                    paddingRight: 7,
-                                    flex: 1,
-                                    textAlign: "center",
-                                    whiteSpace: "nowrap",
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    position: "relative",
-                                    cursor: "pointer",
-                                  }}
-                                >
-                                  {evt.title}
-                                  {isEventOverlapping(evt, events) && (
-                                    <span
-                                      style={{
-                                        marginLeft: 6,
-                                        color: "#fff200",
-                                        fontWeight: 900,
-                                        fontSize: 15,
-                                        verticalAlign: "middle",
-                                        textShadow: "1px 1px 2px #e53935,0 0 5px #fff"
-                                      }}
-                                      title="重複イベント！"
-                                    >⚠</span>
-                                  )}
-                                </span>
-                              </Tooltip>
-                              {/* 右リサイズ */}
-                              <div
-                                style={{
-                                  width: 9, height: "100%",
-                                  borderRadius: "0 7px 7px 0",
-                                  background: "rgba(255,255,255,0.13)",
-                                  cursor: "ew-resize",
-                                  alignSelf: "stretch"
-                                }}
-                                onMouseDown={e => handleBarMouseDown(evt, "right", e, user.id, userIdx)}
-                                onTouchStart={e => handleBarMouseDown(evt, "right", e, user.id, userIdx)}
-                                onContextMenu={e => e.preventDefault()}
-                              />
-                            </div>
-                          )}
-
-                          {showGhost && (
-                            <div
-                              style={{
-                                position: "absolute",
-                                left: 0,
-                                top: 3,
-                                height: cellSize.rowHeight - 6,
-                                width: (ghostBar.endIdx - ghostBar.startIdx + 1) * cellSize.cellWidth,
-                                background: ghostBar.color,
-                                opacity: 0.5,
-                                border: "2.5px dashed #1976d2",
-                                zIndex: 20,
-                                pointerEvents: "none",
-                                borderRadius: 7,
-                                display: "flex",
-                                alignItems: "center",
-                                fontWeight: 600,
-                                color: "#fff",
-                                textShadow: "0 1px 2px #3335",
-                              }}
-                            >
-                              <span style={{
-                                fontSize: 13,
-                                flex: 1,
-                                textAlign: "center",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis"
-                              }}>{ghostBar.title}</span>
-                            </div>
-                          )}
-
-                          {showPasteGhost && clipboard && (
-                            <div
-                              style={{
-                                position: "absolute",
-                                left: 0,
-                                top: 3,
-                                height: cellSize.rowHeight - 6,
-                                width: (Math.min(idx + clipboard.duration, 95) - idx + 1) * cellSize.cellWidth,
-                                background: clipboard.color,
-                                opacity: 0.47,
-                                border: "2.5px dashed #ff9800",
-                                zIndex: 22,
-                                pointerEvents: "none",
-                                borderRadius: 7,
-                                display: "flex",
-                                alignItems: "center",
-                                fontWeight: 700,
-                                color: "#fff",
-                                textShadow: "0 1px 2px #3335",
-                              }}
-                            >
-                              <span style={{
-                                fontSize: 13,
-                                flex: 1,
-                                textAlign: "center",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis"
-                              }}>{clipboard.title}</span>
-                            </div>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-            </tbody>
           </table>
         </div>
       </div>
