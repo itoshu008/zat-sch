@@ -6,7 +6,7 @@ import CalendarDay from "./components/CalendarDay";
 import CalendarMonth from "./components/CalendarMonth";
 import GroupSettings from "./components/GroupSettings"; // ★ UserGroupSettingsからGroupSettingsに変更
 import TemplateManager from "./components/TemplateManager";
-import "./components/CalendarTable.css";
+
 
 function AppContent() {
   const [users, setUsers] = useState([]);
