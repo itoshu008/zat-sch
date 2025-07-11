@@ -62,24 +62,24 @@ export default function CalendarDay({
   currentDate, setCurrentDate, handlePrevDate, handleNextDate, handleNowDate
 }) {
   // ★ 完全レスポンシブなcellSize
-  const [cellSize, setCellSize] = useState(() => {
+const [cellSize, setCellSize] = useState(() => {
+  const w = window.innerWidth;
+  if (w < 500) return { cellWidth: 36, rowHeight: 44, userColWidth: 70 };
+  if (w < 700) return { cellWidth: 28, rowHeight: 36, userColWidth: 96 };
+  if (w < 900) return { cellWidth: 24, rowHeight: 32, userColWidth: 120 };
+  return { cellWidth: 22, rowHeight: 32, userColWidth: 140 };
+});
+useEffect(() => {
+  function handleResize() {
     const w = window.innerWidth;
-    if (w < 500) return { cellWidth: 14, rowHeight: 22, userColWidth: 36 };
-    if (w < 700) return { cellWidth: 21, rowHeight: 30, userColWidth: 54 };
-    if (w < 900) return { cellWidth: 27, rowHeight: 38, userColWidth: 90 };
-    return { cellWidth: 25, rowHeight: 38, userColWidth: 120 };
-  });
-  useEffect(() => {
-    function handleResize() {
-      const w = window.innerWidth;
-      if (w < 500) setCellSize({ cellWidth: 14, rowHeight: 22, userColWidth: 36 });
-      else if (w < 700) setCellSize({ cellWidth: 21, rowHeight: 30, userColWidth: 54 });
-      else if (w < 900) setCellSize({ cellWidth: 27, rowHeight: 38, userColWidth: 90 });
-      else setCellSize({ cellWidth: 25, rowHeight: 38, userColWidth: 120 });
-    }
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+    if (w < 500) setCellSize({ cellWidth: 36, rowHeight: 44, userColWidth: 70 });
+    else if (w < 700) setCellSize({ cellWidth: 28, rowHeight: 36, userColWidth: 96 });
+    else if (w < 900) setCellSize({ cellWidth: 24, rowHeight: 32, userColWidth: 120 });
+    else setCellSize({ cellWidth: 22, rowHeight: 32, userColWidth: 140 });
+  }
+  window.addEventListener("resize", handleResize);
+  return () => window.removeEventListener("resize", handleResize);
+}, []);
 
   const [events, setEvents] = useState([]);
   const [templates, setTemplates] = useState([]);
@@ -295,6 +295,7 @@ export default function CalendarDay({
   }
   function handleCellTouchStart(e) {
     if (pasteMode) return;
+      e.preventDefault(); // ← これ追加
     const td = e.currentTarget;
     const idx = parseInt(td.dataset.idx, 10);
     const userIdx = parseInt(td.dataset.useridx, 10);
