@@ -433,6 +433,12 @@ th, td {
     height: 18px !important;
     padding: 0 !important;
   }
+  /* ▼▼▼ 修正を追記 ▼▼▼ */
+  .event-bar, .event-bar-inner {
+    height: 18px !important;
+    min-height: 18px !important;
+  }
+  /* ▲▲▲ 修正を追記 ▲▲▲ */
   .calendar-th-sticky-corner, .calendar-th-sticky-left, .calendar-user-cell {
     width: 28px !important; min-width: 22px !important; max-width: 32px !important;
     font-size: 11px !important;
