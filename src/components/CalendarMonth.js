@@ -6,8 +6,7 @@ import {
 } from "firebase/firestore";
 import Holidays from "date-holidays";
 
-// 省略禁止・全機能搭載
-
+// ======= 色定義 =======
 const COLORS_36 = [
   "#1976d2", "#43a047", "#f44336", "#e91e63", "#9c27b0", "#673ab7", "#3f51b5", "#2196f3",
   "#03a9f4", "#00bcd4", "#009688", "#4caf50", "#8bc34a", "#cddc39", "#ffeb3b", "#ffc107",
@@ -84,7 +83,7 @@ function formatDateJST(date) {
   return `${y}-${m}-${d}`;
 }
 
-// ===== メイン CalendarMonth =====
+// ========== メイン CalendarMonth ==========
 export default function CalendarMonth({
   users, currentUser, onChangeUser,
   currentMonth, setCurrentMonth,
@@ -402,12 +401,12 @@ export default function CalendarMonth({
   useEffect(() => {
     function onKeyDown(e) {
       if ((e.key === "Delete" || e.key === "Backspace") && selectedBar) {
-  e.preventDefault();
-  const targetEvent = events.find(ev => ev.id === selectedBar.eventId);
-  if (targetEvent) {
-    setEditEvent({ event: targetEvent, op: "delete" }); // ← これだけ！
-  }
-}
+        e.preventDefault();
+        const targetEvent = events.find(ev => ev.id === selectedBar.eventId);
+        if (targetEvent) {
+          setEditEvent({ event: targetEvent, op: "delete" });
+        }
+      }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c" && selectedBar) {
         e.preventDefault();
         const targetEvent = events.find(ev => ev.id === selectedBar.eventId);
@@ -432,7 +431,6 @@ export default function CalendarMonth({
   // --- 貼り付けモード時のマウス・タッチ対応 ---
   useEffect(() => {
     if (!pasteMode) return;
-
     function onMove(e) {
       let clientX, clientY;
       if (e.touches && e.touches.length > 0) {
@@ -459,7 +457,6 @@ export default function CalendarMonth({
       }
       setPasteGhost({ rowIdx, idx });
     }
-
     window.addEventListener("mousemove", onMove);
     window.addEventListener("touchmove", onMove, { passive: false });
     return () => {
