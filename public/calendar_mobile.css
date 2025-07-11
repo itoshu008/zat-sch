@@ -1,4 +1,5 @@
 /* スマートフォン版 (700px以下) */
+body { background: #ffc0cb !important; }
 @media (max-width: 700px) {
   :root {
     --cell-width-mobile: 10px;
@@ -8,6 +9,7 @@
 
   html, body, #root {
     font-size: 12px;
+    
   }
 
   .header-buttons-row,
