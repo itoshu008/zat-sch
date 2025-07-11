@@ -5,9 +5,8 @@ import {
   collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc, query, where
 } from "firebase/firestore";
 import Holidays from "date-holidays";
-import "./CalendarTable.css";
 
-// ---- 定数 ----
+// ======= 色定義 =======
 const COLORS_36 = [
   "#1976d2", "#43a047", "#f44336", "#e91e63", "#9c27b0", "#673ab7", "#3f51b5", "#2196f3",
   "#03a9f4", "#00bcd4", "#009688", "#4caf50", "#8bc34a", "#cddc39", "#ffeb3b", "#ffc107",
@@ -18,14 +17,12 @@ const COLORS_36 = [
 const cellWidth = 21;
 const DATE_COL_WIDTH = 65;
 const ROW_HEIGHT = 40;
-// 0時～23:45まで15分刻み
 const TIME_LIST = Array.from({ length: 96 }, (_, i) => {
   const h = Math.floor(i / 4);
   const m = (i % 4) * 15;
   return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 });
 function timeToIndex(time) {
-  // "09:15" → 37
   const [h, m] = time.split(":").map(Number);
   return h * 4 + Math.floor(m / 15);
 }
@@ -74,19 +71,19 @@ function isEventOverlapping(evt, allEvents) {
   );
 }
 function parseDateString(str) {
-  // yyyy-mm-dd → Date
   if (!str) return null;
   const [y, m, d] = str.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
 function formatDateJST(date) {
+  if (!date || !(date instanceof Date) || isNaN(date)) return "";
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 }
 
-// ==== メインCalendarMonth ==== 
+// ========== メイン CalendarMonth ==========
 export default function CalendarMonth({
   users, currentUser, onChangeUser,
   currentMonth, setCurrentMonth,
@@ -94,7 +91,7 @@ export default function CalendarMonth({
   const scrollRef = useRef(null);
   const footerTimeRef = useRef(null);
 
-  // --- 横スクロール同期
+  // 横スクロール同期
   useEffect(() => {
     function onScroll() {
       if (footerTimeRef.current && scrollRef.current)
@@ -107,7 +104,7 @@ export default function CalendarMonth({
     };
   }, []);
 
-  // --- daysArray
+  // 日付配列
   const daysArray = useMemo(() => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
@@ -124,7 +121,7 @@ export default function CalendarMonth({
     });
   }, [currentMonth]);
 
-  // --- イベントデータ
+  // イベントデータ
   const [events, setEvents] = useState([]);
   useEffect(() => {
     if (!currentUser) return;
@@ -142,7 +139,7 @@ export default function CalendarMonth({
     return () => unsub();
   }, [currentUser, currentMonth]);
 
-  // --- テンプレート
+  // テンプレート
   const [templates, setTemplates] = useState([]);
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "templates"), (snap) => {
@@ -151,12 +148,12 @@ export default function CalendarMonth({
     return () => unsub();
   }, []);
 
-  // --- コピペ履歴
+  // コピペ履歴
   const [copyCounts, setCopyCounts] = useState(loadCopyCounts());
   useEffect(() => { saveCopyCounts(copyCounts); }, [copyCounts]);
   const pasteCandidates = Object.entries(copyCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
 
-  // --- 状態
+  // 各種状態
   const [selectedBar, setSelectedBar] = useState(null);
   const [barClipboard, setBarClipboard] = useState(null);
   const [selectedCells, setSelectedCells] = useState([]);
@@ -171,7 +168,11 @@ export default function CalendarMonth({
   const tooltipTimer = useRef();
   const longPressTimeout = useRef();
 
-  // --- ゴーストバー
+  // 貼り付けモード
+  const [pasteMode, setPasteMode] = useState(false);
+  const [pasteGhost, setPasteGhost] = useState(null);
+
+  // ゴーストバー
   let ghostBar = null;
   if (dragMode && moveInfo) {
     ghostBar = {
@@ -184,18 +185,46 @@ export default function CalendarMonth({
   }
 
   function handleRootClick(e) { setSelectedBar(null); setSelectedCells([]); setHoveredEvent(null); }
+
   function handleBarClick(evt, day, rowIdx, e) {
     e.stopPropagation();
     setSelectedBar({ eventId: evt.id, day, rowIdx });
     setSelectedCells([]);
   }
+
+  // --- マウス・タッチ両対応: セル選択 ---
   function handleCellMouseDown(day, idx, e) {
-    if (e.button !== 0) return;
+    if ((e.button !== undefined && e.button !== 0) || pasteMode) return;
     dragging.current = true;
     const rowIdx = daysArray.findIndex(d => d.day === day);
     setDragStart({ rowIdx, idx });
     setDragEnd({ rowIdx, idx });
     setSelectedBar(null);
+
+    // --- タッチ用 ---
+    if (e.touches) {
+      const touch = e.touches[0];
+      if (!touch) return;
+      function onTouchMove(te) {
+        const t = te.touches[0];
+        if (!t) return;
+        const scrollContainer = scrollRef.current;
+        if (!scrollContainer) return;
+        const tbody = scrollContainer.querySelector('tbody');
+        if (!tbody) return;
+        const tbodyRect = tbody.getBoundingClientRect();
+        const y = t.clientY - tbodyRect.top;
+        const rowIdx2 = Math.floor(y / ROW_HEIGHT);
+        setDragEnd({ rowIdx: rowIdx2, idx });
+      }
+      function onTouchEnd() {
+        handleMouseUp();
+        document.removeEventListener("touchmove", onTouchMove);
+        document.removeEventListener("touchend", onTouchEnd);
+      }
+      document.addEventListener("touchmove", onTouchMove, { passive: false });
+      document.addEventListener("touchend", onTouchEnd, { passive: false });
+    }
   }
   function handleCellMouseEnter(day, idx) {
     const rowIdx = daysArray.findIndex(d => d.day === day);
@@ -204,6 +233,7 @@ export default function CalendarMonth({
     }
   }
   function handleMouseUp() {
+    if (!dragging.current) return;
     if (dragStart && dragEnd && dragStart.rowIdx === dragEnd.rowIdx) {
       const s = Math.min(dragStart.idx, dragEnd.idx);
       const e = Math.max(dragStart.idx, dragEnd.idx);
@@ -226,7 +256,9 @@ export default function CalendarMonth({
     setDragEnd(null);
     dragging.current = false;
   }
+
   function isSelected(day, idx) {
+    if (selectedBar) return false;
     const rowIdx = daysArray.findIndex(d => d.day === day);
     if (dragStart && dragEnd && dragStart.rowIdx === rowIdx && dragEnd.rowIdx === rowIdx) {
       const s = Math.min(dragStart.idx, dragEnd.idx);
@@ -235,82 +267,113 @@ export default function CalendarMonth({
     }
     return selectedCells.some(cell => cell.rowIdx === rowIdx && cell.idx === idx);
   }
+
+  // --- バー移動・リサイズ: タッチ対応も追加 ---
   function handleBarMouseDown(evt, type, e, day, rowIdx) {
     e.stopPropagation();
     setSelectedBar({ eventId: evt.id, day, rowIdx });
     setDragMode(type);
+    const getClientXY = e =>
+      e.touches ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : { x: e.clientX, y: e.clientY };
+    const { x, y } = getClientXY(e);
     setMoveInfo({
       event: evt,
       rowIdx,
       startIdx: evt.startIdx,
       endIdx: evt.endIdx,
-      dragStartX: e.clientX,
-      dragStartY: e.clientY,
+      dragStartX: x,
+      dragStartY: y,
       dragStartCell: evt.startIdx,
       dragStartEndCell: evt.endIdx,
       dragStartRowIdx: rowIdx,
       type,
     });
+
+    // --- タッチ用 ---
+    if (e.touches) {
+      function onTouchMove(te) {
+        const t = te.touches[0];
+        if (!t) return;
+        onBarMoveOrResize(t.clientX, t.clientY);
+      }
+      function onTouchEnd() {
+        onBarMouseUp();
+        document.removeEventListener("touchmove", onTouchMove);
+        document.removeEventListener("touchend", onTouchEnd);
+      }
+      document.addEventListener("touchmove", onTouchMove, { passive: false });
+      document.addEventListener("touchend", onTouchEnd, { passive: false });
+    }
   }
 
+  function onBarMoveOrResize(clientX, clientY) {
+    if (!dragMode || !moveInfo) return;
+    const dx = clientX - moveInfo.dragStartX;
+    const dy = clientY - moveInfo.dragStartY;
+    let newRowIdx = moveInfo.dragStartRowIdx;
+    let newStart = moveInfo.dragStartCell;
+    let newEnd = moveInfo.dragStartEndCell;
+
+    if (Math.abs(dy) > ROW_HEIGHT / 2) {
+      const rowOffset = Math.round(dy / ROW_HEIGHT);
+      newRowIdx = Math.max(0, Math.min(daysArray.length - 1, moveInfo.dragStartRowIdx + rowOffset));
+    }
+    if (dragMode === "move") {
+      const cellOffset = Math.round(dx / cellWidth);
+      newStart = Math.max(0, Math.min(95, moveInfo.dragStartCell + cellOffset));
+      const width = moveInfo.dragStartEndCell - moveInfo.dragStartCell;
+      newEnd = Math.max(newStart, Math.min(95, newStart + width));
+    } else if (dragMode === "resize-left") {
+      const cellOffset = Math.round(dx / cellWidth);
+      newStart = Math.max(0, Math.min(moveInfo.dragStartEndCell - 1, moveInfo.dragStartCell + cellOffset));
+    } else if (dragMode === "resize-right") {
+      const cellOffset = Math.round(dx / cellWidth);
+      newEnd = Math.max(moveInfo.dragStartCell + 1, Math.min(95, moveInfo.dragStartEndCell + cellOffset));
+    }
+    setMoveInfo(mi => ({
+      ...mi,
+      startIdx: newStart,
+      endIdx: newEnd,
+      rowIdx: newRowIdx,
+    }));
+  }
+
+  async function onBarMouseUp() {
+    if (!dragMode || !moveInfo) {
+      setDragMode(null);
+      setMoveInfo(null);
+      return;
+    }
+    const { rowIdx } = moveInfo;
+    const { day, date } = daysArray[rowIdx];
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    const monthStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    const eventRef = doc(db, "events", moveInfo.event.id);
+    if (dragMode === "move") {
+      await updateDoc(eventRef, {
+        day,
+        date: dateStr,
+        month: monthStr,
+        startIdx: moveInfo.startIdx,
+        endIdx: moveInfo.endIdx,
+      });
+    } else if (dragMode === "resize-left") {
+      await updateDoc(eventRef, { startIdx: moveInfo.startIdx });
+    } else if (dragMode === "resize-right") {
+      await updateDoc(eventRef, { endIdx: moveInfo.endIdx });
+    }
+    setDragMode(null);
+    setMoveInfo(null);
+  }
+
+  // --- PCマウスドラッグ（既存のまま） ---
   useEffect(() => {
     function onMouseMove(e) {
       if (!dragMode || !moveInfo) return;
-      const dx = e.clientX - moveInfo.dragStartX;
-      const dy = e.clientY - moveInfo.dragStartY;
-      let newRowIdx = moveInfo.dragStartRowIdx;
-      let newStart = moveInfo.dragStartCell;
-      let newEnd = moveInfo.dragStartEndCell;
-
-      if (Math.abs(dy) > ROW_HEIGHT / 2) {
-        const rowOffset = Math.round(dy / ROW_HEIGHT);
-        newRowIdx = Math.max(0, Math.min(daysArray.length - 1, moveInfo.dragStartRowIdx + rowOffset));
-      }
-      if (dragMode === "move") {
-        const cellOffset = Math.round(dx / cellWidth);
-        newStart = Math.max(0, Math.min(95, moveInfo.dragStartCell + cellOffset));
-        const width = moveInfo.dragStartEndCell - moveInfo.dragStartCell;
-        newEnd = Math.max(newStart, Math.min(95, newStart + width));
-      } else if (dragMode === "resize-left") {
-        const cellOffset = Math.round(dx / cellWidth);
-        newStart = Math.max(0, Math.min(moveInfo.dragStartEndCell - 1, moveInfo.dragStartCell + cellOffset));
-      } else if (dragMode === "resize-right") {
-        const cellOffset = Math.round(dx / cellWidth);
-        newEnd = Math.max(moveInfo.dragStartCell + 1, Math.min(95, moveInfo.dragStartEndCell + cellOffset));
-      }
-      setMoveInfo(mi => ({
-        ...mi,
-        startIdx: newStart,
-        endIdx: newEnd,
-        rowIdx: newRowIdx,
-      }));
+      onBarMoveOrResize(e.clientX, e.clientY);
     }
-    async function onMouseUp(e) {
-      if (!dragMode || !moveInfo) {
-        setDragMode(null);
-        setMoveInfo(null);
-        return;
-      }
-      const { rowIdx } = moveInfo;
-      const { day, date } = daysArray[rowIdx];
-      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-      const monthStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      const eventRef = doc(db, "events", moveInfo.event.id);
-      if (dragMode === "move") {
-        await updateDoc(eventRef, {
-          day,
-          date: dateStr,
-          month: monthStr,
-          startIdx: moveInfo.startIdx,
-          endIdx: moveInfo.endIdx,
-        });
-      } else if (dragMode === "resize-left") {
-        await updateDoc(eventRef, { startIdx: moveInfo.startIdx });
-      } else if (dragMode === "resize-right") {
-        await updateDoc(eventRef, { endIdx: moveInfo.endIdx });
-      }
-      setDragMode(null);
-      setMoveInfo(null);
+    function onMouseUp() {
+      onBarMouseUp();
     }
     if (dragMode) {
       document.addEventListener("mousemove", onMouseMove);
@@ -321,10 +384,12 @@ export default function CalendarMonth({
       };
     }
   }, [dragMode, moveInfo, daysArray]);
+
   useEffect(() => {
     document.addEventListener('mouseup', handleMouseUp);
     return () => document.removeEventListener('mouseup', handleMouseUp);
   }, [dragStart, dragEnd]);
+
   useEffect(() => {
     if (!scrollRef.current) return;
     const idx14 = 14 * 4;
@@ -332,6 +397,7 @@ export default function CalendarMonth({
     const targetScrollLeft = DATE_COL_WIDTH + cellWidth * idx14 - viewWidth / 2 + cellWidth / 2;
     scrollRef.current.scrollLeft = Math.max(0, targetScrollLeft);
   }, []);
+
   useEffect(() => {
     function onKeyDown(e) {
       if ((e.key === "Delete" || e.key === "Backspace") && selectedBar) {
@@ -350,30 +416,125 @@ export default function CalendarMonth({
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v" && barClipboard) {
         e.preventDefault();
-        if (selectedCells.length > 0) {
-          const cell = selectedCells[0];
-          const { rowIdx, idx } = cell;
-          const dayObj = daysArray[rowIdx];
-          const date = dayObj.date;
-          const monthStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-          const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-          const len = barClipboard.endIdx - barClipboard.startIdx;
-          addDoc(collection(db, "events"), {
-            userId: currentUser.id,
-            title: barClipboard.title,
-            color: barClipboard.color,
-            startIdx: idx,
-            endIdx: idx + len,
-            date: dateStr,
-            month: monthStr,
-            day: date.getDate()
-          });
-        }
+        setPasteMode(true);
+        setPasteGhost(null);
+      }
+      if (e.key === "Escape" && pasteMode) {
+        setPasteMode(false);
+        setPasteGhost(null);
       }
     }
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [selectedBar, barClipboard, selectedCells, daysArray, events, currentUser]);
+  }, [selectedBar, barClipboard, selectedCells, daysArray, events, currentUser, pasteMode]);
+
+  // --- 貼り付けモード時のマウス・タッチ対応 ---
+  useEffect(() => {
+    if (!pasteMode) return;
+    function onMove(e) {
+      let clientX, clientY;
+      if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+      const scrollContainer = scrollRef.current;
+      if (!scrollContainer) return;
+      const tbody = scrollContainer.querySelector('tbody');
+      if (!tbody) return;
+      const tbodyRect = tbody.getBoundingClientRect();
+      const y = clientY - tbodyRect.top;
+      const containerRect = scrollContainer.getBoundingClientRect();
+      const scrollX = scrollContainer.scrollLeft || 0;
+      const x = clientX - containerRect.left - DATE_COL_WIDTH + scrollX;
+      if (x < 0 || y < 0) { setPasteGhost(null); return; }
+      const idx = Math.floor(x / cellWidth);
+      const rowIdx = Math.floor(y / ROW_HEIGHT);
+      if (rowIdx < 0 || idx < 0 || rowIdx >= daysArray.length || idx >= 96) {
+        setPasteGhost(null); return;
+      }
+      setPasteGhost({ rowIdx, idx });
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("touchmove", onMove, { passive: false });
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("touchmove", onMove);
+    };
+  }, [pasteMode, daysArray]);
+
+  // --- ゴーストバー貼り付け時のクリック（重複チェック付き）
+  function handlePasteCellClick(rowIdx, idx) {
+    if (
+      pasteMode &&
+      barClipboard &&
+      typeof barClipboard.startIdx === "number" &&
+      typeof barClipboard.endIdx === "number"
+    ) {
+      const dayObj = daysArray[rowIdx];
+      const date = dayObj.date;
+      const dayNum = dayObj.day;
+      const len = Math.max(0, barClipboard.endIdx - barClipboard.startIdx); // 長さ
+      const dayEvents = events.filter(e => Number(e.day) === Number(dayNum));
+      if (
+        isEventOverlapping(
+          {
+            id: undefined,
+            userId: currentUser.id,
+            day: dayNum,
+            startIdx: idx,
+            endIdx: Math.min(idx + len, 95)
+          },
+          dayEvents
+        )
+      ) return;
+      addDoc(collection(db, "events"), {
+        userId: currentUser.id,
+        title: barClipboard.title,
+        color: barClipboard.color,
+        startIdx: idx,
+        endIdx: Math.min(idx + len, 95),
+        date: formatDateJST(date),
+        month: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
+        day: dayNum
+      }).then(() => {
+        setPasteMode(false);
+        setPasteGhost(null);
+        setBarClipboard(null);
+      });
+    }
+  }
+
+  // 既存の貼り付けショートカット用（セル選択貼り付けは消さず維持・併用）
+  useEffect(() => {
+    function onKeyDownPaste(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v" && barClipboard && selectedCells.length > 0 && !pasteMode) {
+        e.preventDefault();
+        const cell = selectedCells[0];
+        const { rowIdx, idx } = cell;
+        const dayObj = daysArray[rowIdx];
+        const date = dayObj.date;
+        const monthStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+        const len = barClipboard.endIdx - barClipboard.startIdx;
+        addDoc(collection(db, "events"), {
+          userId: currentUser.id,
+          title: barClipboard.title,
+          color: barClipboard.color,
+          startIdx: idx,
+          endIdx: idx + len,
+          date: dateStr,
+          month: monthStr,
+          day: date.getDate()
+        });
+      }
+    }
+    window.addEventListener("keydown", onKeyDownPaste, true);
+    return () => window.removeEventListener("keydown", onKeyDownPaste, true);
+  }, [barClipboard, selectedCells, daysArray, currentUser, pasteMode]);
+
   const [entryStep, setEntryStep] = useState(null);
   const [entryData, setEntryData] = useState(null);
   const [editEvent, setEditEvent] = useState(null);
@@ -383,7 +544,7 @@ export default function CalendarMonth({
     setEditEvent(null);
   };
   function handleCellDoubleClick(day, idx) {
-    if (dragMode) return;
+    if (dragMode || pasteMode) return;
     const rowIdx = daysArray.findIndex(d => d.day === day);
     setSelectedCells([{ rowIdx, idx }]);
     setEntryStep("select");
@@ -408,10 +569,6 @@ export default function CalendarMonth({
       const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const dateStr = formatDateJST(d);
       const dayNum = d.getDate();
-      if (isEventOverlapping({ userId: currentUser.id, day: dayNum, startIdx: s, endIdx: e }, events.filter(ev => Number(ev.day) === Number(dayNum)))) {
-        alert("他の予定と重複しています！");
-        return;
-      }
       await addDoc(collection(db, "events"), {
         userId: currentUser.id,
         title: title.trim(),
@@ -455,10 +612,6 @@ export default function CalendarMonth({
     if (endIdx < startIdx) [startIdx, endIdx] = [endIdx, startIdx];
     const d = parseDateString(changed.date);
     const evDay = d ? d.getDate() : changed.day;
-    if (isEventOverlapping({ ...changed, startIdx, endIdx, day: evDay }, events.filter(ev => Number(ev.day) === Number(evDay)))) {
-      alert("他の予定と重複しています！");
-      return;
-    }
     await updateDoc(doc(db, "events", changed.id), { title: changed.title, color: changed.color, startIdx, endIdx });
     closeAllDialogs();
   }
@@ -513,6 +666,57 @@ export default function CalendarMonth({
       ? "none"
       : "2px solid #42a5f5";
 
+  function handleSelectDialogOpen(step, entryDataArg) {
+    const ed = entryDataArg || entryData || {};
+    const filled = {
+      ...ed,
+      startIdx: ed.startIdx ?? 36,
+      endIdx: ed.endIdx ?? 40,
+      rowIdx: ed.rowIdx ?? 0,
+      date: ed.date ?? (() => {
+        const today = new Date(currentMonth);
+        today.setDate(1 + (ed.rowIdx ?? 0));
+        return formatDateJST(today);
+      })(),
+      startTime: ed.startTime ?? "09:00",
+      endTime: ed.endTime ?? "10:00",
+      title: ed.title ?? "",
+      color: ed.color ?? COLORS_36[0],
+    };
+    setEntryData(filled);
+    setEntryStep(step);
+  }
+
+  // ---- レスポンシブCSS ----
+  // ※ 追加で外部css, CalendarTable.css等にも貼ってください
+  const style = `
+@media (max-width: 800px) {
+  .event-dialog .dialog-content,
+  .event-dialog-new .dialog-content {
+    width: 97vw !important;
+    min-width: 0 !important;
+    max-width: 99vw !important;
+    font-size: 17px !important;
+    padding: 16px 7px !important;
+  }
+  .calendar-btn,
+  .calendar-btn-main,
+  .calendar-btn-outline {
+    min-height: 44px !important;
+    font-size: 18px !important;
+    padding: 0 20px !important;
+  }
+  th, td {
+    font-size: 15px !important;
+  }
+  .color-swatch {
+    width: 28px !important;
+    height: 28px !important;
+  }
+}
+`;
+
+  // ---- JSX ----
   return (
     <div
       style={{
@@ -524,7 +728,8 @@ export default function CalendarMonth({
       }}
       onClick={handleRootClick}
     >
-      {/* ▼ テーブル本体＋スクロール */}
+      <style>{style}</style>
+      {/* ----- 表本体 ----- */}
       <div
         ref={scrollRef}
         style={{
@@ -558,21 +763,28 @@ export default function CalendarMonth({
               }}>
                 日付＼時間
               </th>
-              {Array.from({ length: 24 }).map((_, hour) => (
-                <th key={hour}
-                  colSpan={4}
-                  style={{
-                    minWidth: cellWidth * 4, maxWidth: cellWidth * 4, width: cellWidth * 4,
-                    color: "#357",
-                    borderRight: "2px solid #42a5f5",
-                    fontWeight: 700,
-                    fontSize: 14,
-                    textAlign: "center", padding: "8px 0",
-                    boxSizing: "border-box",
-                  }}>
-                  {`${String(hour).padStart(2, "0")}:00`}
-                </th>
-              ))}
+           {Array.from({ length: 24 }).map((_, hour) => (
+  <th
+    key={hour}
+    colSpan={4}
+    style={{
+      minWidth: cellWidth * 4,
+      maxWidth: cellWidth * 4,
+      width: cellWidth * 4,
+      color: "#357",
+      borderRight: "2px solid #42a5f5",
+      fontWeight: 700,
+      fontSize: 14,
+      textAlign: "center",
+      padding: "8px 0",
+      boxSizing: "border-box",
+      background: "#f1f8ff",  // 見やすさUP
+    }}
+  >
+    {`${String(hour).padStart(2, "0")}:00`}
+  </th>
+))}
+
             </tr>
           </thead>
           <tbody>
@@ -610,6 +822,8 @@ export default function CalendarMonth({
                     const isSel = isSelected(day, idx);
                     const evt = dayEvents.find(e => e.startIdx === idx);
                     const showGhost = ghostBar && ghostBar.rowIdx === rowIdx && ghostBar.startIdx === idx;
+                    // ▼▼▼ 貼り付けゴースト（マウス下） ▼▼▼
+                    const showPasteGhost = pasteMode && pasteGhost && pasteGhost.rowIdx === rowIdx && pasteGhost.idx === idx && barClipboard;
                     return (
                       <td key={idx}
                         className={isSel ? "selected-td" : ""}
@@ -621,8 +835,11 @@ export default function CalendarMonth({
                           position: "relative", padding: 0, margin: 0,
                           overflow: "visible",
                           boxSizing: "border-box",
+                          cursor: pasteMode ? "pointer" : undefined,
+                          touchAction: "none",
                         }}
                         onMouseDown={e => handleCellMouseDown(day, idx, e)}
+                        onTouchStart={e => handleCellMouseDown(day, idx, e)}
                         onMouseEnter={e => handleCellMouseEnter(day, idx)}
                         onDoubleClick={e => {
                           e.stopPropagation();
@@ -634,162 +851,198 @@ export default function CalendarMonth({
                             endIdx: idx,
                           });
                         }}
+                        onClick={e => { handlePasteCellClick(rowIdx, idx); }}
+                        onTouchEnd={e => { handlePasteCellClick(rowIdx, idx); }}
                       >
                         {/* イベントバー */}
-                        {evt && !showGhost && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              left: 0,
-                              top: 3,
-                              height: ROW_HEIGHT - 6,
-                              width: Math.max(0, (evt.endIdx - evt.startIdx + 1) * cellWidth - 2),
-                              background: evt.color,
-                              color: "#fff",
-                              fontWeight: 600,
-                              display: "flex",
-                              alignItems: "center",
-                              borderRadius: 7,
-                              border: selectedBar?.eventId === evt.id
-                                ? "3px solid #00A0FF"
-                                : isEventOverlapping(evt, dayEvents)
-                                  ? "2px solid #e53935"
-                                  : "1px solid #888",
-                              zIndex: selectedBar?.eventId === evt.id ? 11 : 10,
-                              cursor: dragMode ? "grabbing" : "pointer",
-                              opacity: dragMode && moveInfo && moveInfo.event.id === evt.id ? 0.65 : 1,
-                              boxShadow: selectedBar?.eventId === evt.id
-                                ? "0 0 0 2.5px #00A0FF, 0 2px 12px 2px #00A0FF66"
-                                : "0 2px 5px #3331",
-                              outline: selectedBar?.eventId === evt.id ? "2.5px solid #0072C6" : "none",
-                              boxSizing: "content-box",
-                            }}
-                            tabIndex={0}
-                            onClick={e => handleBarClick(evt, day, rowIdx, e)}
-                            onTouchStart={e => {
-                              setSelectedBar({ eventId: evt.id, day, rowIdx });
-                              setSelectedCells([]);
-                              longPressTimeout.current = setTimeout(() => {
-                                setTooltipPos({
-                                  x: e.touches[0].clientX,
-                                  y: e.touches[0].clientY,
-                                  w: 80
-                                });
-                                setHoveredEvent(null);
-                                setEditEvent({ event: evt, op: null });
-                              }, 500);
-                            }}
-                            onTouchEnd={() => clearTimeout(longPressTimeout.current)}
-                            onTouchCancel={() => clearTimeout(longPressTimeout.current)}
-                            onMouseDown={e => {
-                              if (e.button !== 0) return;
-                              if (e.detail === 2) {
-                                e.stopPropagation();
-                                handleEventCellDoubleClick(evt);
-                                return;
-                              }
-                              handleBarMouseDown(evt, "move", e, day, rowIdx);
-                            }}
-                            onContextMenu={e => {
-                              e.preventDefault();
-                              setSelectedBar({ eventId: evt.id, day, rowIdx });
-                              setEditEvent({ event: evt, op: null });
-                            }}
-                            onMouseEnter={e => {
-                              clearTimeout(tooltipTimer.current);
-                              const rect = e.target.getBoundingClientRect();
-                              setTooltipPos({
-                                x: rect.left + window.scrollX,
-                                y: rect.top + window.scrollY,
-                                w: rect.width
-                              });
-                              setHoveredEvent(evt);
-                            }}
-                            onMouseLeave={() => {
-                              tooltipTimer.current = setTimeout(() => setHoveredEvent(null), 90);
-                            }}
-                          >
-                            {/* 左リサイズハンドル */}
-                            <div
-                              style={{
-                                width: 9, height: "100%",
-                                borderRadius: "7px 0 0 7px",
-                                background: "rgba(255,255,255,0.13)",
-                                cursor: "ew-resize",
-                                alignSelf: "stretch"
-                              }}
-                              onMouseDown={e => handleBarMouseDown(evt, "resize-left", e, day, rowIdx)}
-                              onContextMenu={e => e.preventDefault()}
-                            />
-                            {/* 中央タイトル等 */}
-                            <div style={{
-                              display: "flex",
-                              flexDirection: "column",
-                              flex: 1,
-                              alignItems: "center",
-                              justifyContent: "center",
-                              width: "100%",
-                              padding: "0 2px",
-                              overflow: "hidden",
-                              minWidth: 0,
-                            }}>
-                              <span style={{
-                                fontSize: 14,
-                                fontWeight: 600,
-                                textAlign: "center",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                width: "100%",
-                                lineHeight: 1.2,
-                              }}>
-                                {evt.title}
-                                {isEventOverlapping(evt, dayEvents) && (
-                                  <span
-                                    style={{
-                                      marginLeft: 6,
-                                      color: "#fff200",
-                                      fontWeight: 900,
-                                      fontSize: 15,
-                                      verticalAlign: "middle",
-                                      textShadow: "1px 1px 2px #e53935,0 0 5px #fff"
-                                    }}
-                                    title="重複イベント！"
-                                  >⚠</span>
-                                )}
-                              </span>
-                              {(evt.endIdx - evt.startIdx) > 1 && (
-                                <span style={{
-                                  fontSize: 15,
-                                  fontWeight: 600,
-                                  opacity: 0.93,
-                                  lineHeight: 1.2,
-                                  marginTop: 1,
-                                  textShadow: "0 1px 2px #3335",
-                                  width: "100%",
-                                  textAlign: "center",
-                                  whiteSpace: "nowrap",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                }}>
-                                  {formatRange(evt.startIdx, evt.endIdx)}
-                                </span>
-                              )}
-                            </div>
-                            {/* 右リサイズハンドル */}
-                            <div
-                              style={{
-                                width: 9, height: "100%",
-                                borderRadius: "0 7px 7px 0",
-                                background: "rgba(255,255,255,0.13)",
-                                cursor: "ew-resize",
-                                alignSelf: "stretch"
-                              }}
-                              onMouseDown={e => handleBarMouseDown(evt, "resize-right", e, day, rowIdx)}
-                              onContextMenu={e => e.preventDefault()}
-                            />
-                          </div>
-                        )}
+                      {/* イベントバー */}
+{evt && !showGhost && (
+  <div
+    style={{
+      position: "absolute",
+      left: 0,
+      top: 3,
+      height: ROW_HEIGHT - 6,
+      width: Math.max(0, (evt.endIdx - evt.startIdx + 1) * cellWidth - 2),
+      background: evt.color,
+      color: "#fff",
+      fontWeight: 600,
+      display: "flex",
+      alignItems: "center",
+      borderRadius: 7,
+      border: selectedBar?.eventId === evt.id
+        ? "3px solid #00A0FF"
+        : isEventOverlapping(evt, dayEvents)
+          ? "2px solid #e53935"
+          : "1px solid #888",
+      zIndex: selectedBar?.eventId === evt.id ? 11 : 10,
+      cursor: dragMode ? "grabbing" : "pointer",
+      opacity: dragMode && moveInfo && moveInfo.event.id === evt.id ? 0.65 : 1,
+      boxShadow: selectedBar?.eventId === evt.id
+        ? "0 0 0 2.5px #00A0FF, 0 2px 12px 2px #00A0FF66"
+        : "0 2px 5px #3331",
+      outline: selectedBar?.eventId === evt.id ? "2.5px solid #0072C6" : "none",
+      boxSizing: "content-box",
+      touchAction: "none"
+    }}
+    tabIndex={0}
+    onClick={e => handleBarClick(evt, day, rowIdx, e)}
+    onDoubleClick={e => {
+      e.stopPropagation();
+      handleEventCellDoubleClick(evt);
+    }}
+    onContextMenu={e => {
+      e.preventDefault();
+      setSelectedBar({ eventId: evt.id, day, rowIdx });
+      setEditEvent({ event: evt, op: null });
+    }}
+    // ▼▼ クリックとドラッグの明確な分離 ▼▼
+    onMouseDown={e => {
+      if (e.button !== 0) return;
+      let dragStarted = false;
+      let startX = e.clientX, startY = e.clientY;
+      handleBarClick(evt, day, rowIdx, e);
+
+      function onMouseMove(me) {
+        if (dragStarted) return;
+        const dx = Math.abs(me.clientX - startX);
+        const dy = Math.abs(me.clientY - startY);
+        if (dx > 3 || dy > 3) {
+          dragStarted = true;
+          handleBarMouseDown(evt, "move", e, day, rowIdx); // ←移動開始
+          cleanup();
+        }
+      }
+      function cleanup() {
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", cleanup);
+      }
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", cleanup);
+    }}
+    onTouchStart={e => {
+      if (!e.touches || e.touches.length !== 1) return;
+      let dragStarted = false;
+      const touch = e.touches[0];
+      let startX = touch.clientX, startY = touch.clientY;
+      handleBarClick(evt, day, rowIdx, e);
+
+      function onTouchMove(te) {
+        if (dragStarted) return;
+        const t = te.touches[0];
+        const dx = Math.abs(t.clientX - startX);
+        const dy = Math.abs(t.clientY - startY);
+        if (dx > 5 || dy > 5) {
+          dragStarted = true;
+          handleBarMouseDown(evt, "move", e, day, rowIdx);
+          cleanup();
+        }
+      }
+      function cleanup() {
+        document.removeEventListener("touchmove", onTouchMove);
+        document.removeEventListener("touchend", cleanup);
+      }
+      document.addEventListener("touchmove", onTouchMove, { passive: false });
+      document.addEventListener("touchend", cleanup);
+    }}
+    onMouseEnter={e => {
+      clearTimeout(tooltipTimer.current);
+      const rect = e.target.getBoundingClientRect();
+      setTooltipPos({
+        x: rect.left + window.scrollX,
+        y: rect.top + window.scrollY,
+        w: rect.width
+      });
+      setHoveredEvent(evt);
+    }}
+    onMouseLeave={() => {
+      tooltipTimer.current = setTimeout(() => setHoveredEvent(null), 90);
+    }}
+  >
+    {/* 左リサイズハンドル */}
+    <div
+      style={{
+        width: 9, height: "100%",
+        borderRadius: "7px 0 0 7px",
+        background: "rgba(255,255,255,0.13)",
+        cursor: "ew-resize",
+        alignSelf: "stretch"
+      }}
+      onMouseDown={e => handleBarMouseDown(evt, "resize-left", e, day, rowIdx)}
+      onTouchStart={e => handleBarMouseDown(evt, "resize-left", e, day, rowIdx)}
+      onContextMenu={e => e.preventDefault()}
+    />
+    {/* 中央タイトル */}
+    <div style={{
+      display: "flex",
+      flexDirection: "column",
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      width: "100%",
+      padding: "0 2px",
+      overflow: "hidden",
+      minWidth: 0,
+    }}>
+      <span style={{
+        fontSize: 14,
+        fontWeight: 600,
+        textAlign: "center",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        width: "100%",
+        lineHeight: 1.2,
+      }}>
+        {evt.title}
+        {isEventOverlapping(evt, dayEvents) && (
+          <span
+            style={{
+              marginLeft: 6,
+              color: "#fff200",
+              fontWeight: 900,
+              fontSize: 15,
+              verticalAlign: "middle",
+              textShadow: "1px 1px 2px #e53935,0 0 5px #fff"
+            }}
+            title="重複イベント！"
+          >⚠</span>
+        )}
+      </span>
+      {(evt.endIdx - evt.startIdx) > 1 && (
+        <span style={{
+          fontSize: 15,
+          fontWeight: 600,
+          opacity: 0.93,
+          lineHeight: 1.2,
+          marginTop: 1,
+          textShadow: "0 1px 2px #3335",
+          width: "100%",
+          textAlign: "center",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}>
+          {formatRange(evt.startIdx, evt.endIdx)}
+        </span>
+      )}
+    </div>
+    {/* 右リサイズハンドル */}
+    <div
+      style={{
+        width: 9, height: "100%",
+        borderRadius: "0 7px 7px 0",
+        background: "rgba(255,255,255,0.13)",
+        cursor: "ew-resize",
+        alignSelf: "stretch"
+      }}
+      onMouseDown={e => handleBarMouseDown(evt, "resize-right", e, day, rowIdx)}
+      onTouchStart={e => handleBarMouseDown(evt, "resize-right", e, day, rowIdx)}
+      onContextMenu={e => e.preventDefault()}
+    />
+  </div>
+)}
+
                         {/* --- ゴーストバー --- */}
                         {showGhost && (
                           <div style={{
@@ -831,6 +1084,47 @@ export default function CalendarMonth({
                             }} />
                           </div>
                         )}
+                        {/* --- 貼り付けゴーストバー（マウス下） --- */}
+                        {showPasteGhost && (
+                          <div style={{
+                            position: "absolute",
+                            left: 0, top: 3,
+                            height: ROW_HEIGHT - 6,
+                            width: Math.round((barClipboard.endIdx - barClipboard.startIdx + 1) * cellWidth),
+                            background: barClipboard.color,
+                            opacity: 0.54,
+                            border: "2.5px dashed #0066cc",
+                            zIndex: 100,
+                            pointerEvents: "none",
+                            borderRadius: 7,
+                            display: "flex",
+                            alignItems: "center",
+                            boxSizing: "border-box",
+                          }}>
+                            <div style={{
+                              width: 9, height: "100%",
+                              borderRadius: "7px 0 0 7px",
+                              background: "rgba(255,255,255,0.18)",
+                            }} />
+                            <div style={{
+                              display: "flex", flexDirection: "column", flex: 1, alignItems: "center", justifyContent: "center", width: "100%", padding: "0 2px", color: "#fff", textShadow: "0 1px 2px #3335", overflow: "hidden"
+                            }}>
+                              <span style={{
+                                fontSize: 14, fontWeight: 600, textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", width: "100%", lineHeight: 1.2,
+                              }}>{barClipboard.title}</span>
+                              {(barClipboard.endIdx - barClipboard.startIdx) > 1 && (
+                                <span style={{
+                                  fontSize: 15, fontWeight: 600, width: "100%", textAlign: "center", lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
+                                }}>{formatRange(barClipboard.startIdx, barClipboard.endIdx)}</span>
+                              )}
+                            </div>
+                            <div style={{
+                              width: 9, height: "100%",
+                              borderRadius: "0 7px 7px 0",
+                              background: "rgba(255,255,255,0.18)",
+                            }} />
+                          </div>
+                        )}
                       </td>
                     );
                   })}
@@ -841,46 +1135,52 @@ export default function CalendarMonth({
         </table>
         {/* --- 各種ダイアログ・ツールチップ --- */}
         <TooltipPortal evt={hoveredEvent} x={tooltipPos.x} y={tooltipPos.y} w={tooltipPos.w} />
-{entryStep === "select" && entryData && (
-  <SelectEntryDialog
-// 1. まず初期値をしっかり入れてからentryStepを切り替える
-onSelect={step => {
-  const filled = {
-    ...entryData,
-    startIdx: entryData.startIdx ?? 36,
-    endIdx: entryData.endIdx ?? 40,
-    rowIdx: entryData.rowIdx ?? 0,
-    date: entryData.date ?? (() => {
-      const today = new Date(currentMonth);
-      today.setDate(1 + (entryData.rowIdx ?? 0));
-      return formatDateJST(today);
-    })(),
-    startTime: entryData.startTime ?? "09:00",
-    endTime: entryData.endTime ?? "10:00",
-    title: entryData.title ?? "",
-    color: entryData.color ?? COLORS_36[0],
-  };
-  setEntryData(filled);
-  setTimeout(() => setEntryStep(step), 0);
-}}
-
-    onCancel={closeAllDialogs}
-  />
-)}
-
-
+        {entryStep === "select" && entryData && (
+          <SelectEntryDialog
+            onSelect={step => handleSelectDialogOpen(step, entryData)}
+            onCancel={closeAllDialogs}
+          />
+        )}
+        {entryStep === "new" && entryData && (
+          <EventDialogNew
+            entryData={entryData}
+            setEntryData={setEntryData}
+            onSave={() => handleEntrySave(entryData)}
+            onCancel={closeAllDialogs}
+          />
+        )}
+        {entryStep === "template" && entryData && (
+          <TemplateDialog
+            entryData={entryData}
+            setEntryData={setEntryData}
+            templates={templates}
+            onSelectTemplate={tpl => {
+              handleEntrySave({
+                ...entryData,
+                title: tpl.title,
+                color: tpl.color,
+                date: formatDateJST(daysArray[entryData.rowIdx].date),
+                startTime: indexToTime(entryData.startIdx),
+                endTime: indexToTime(entryData.endIdx + 1),
+              });
+            }}
+            onCancel={closeAllDialogs}
+          />
+        )}
         {entryStep === "paste" && entryData && (
           <PasteDialog
             entryData={entryData}
             setEntryData={setEntryData}
             pasteCandidates={pasteCandidates}
             onSelectPaste={(title, color) => {
-              setEntryData(data => ({
-                ...data,
+              handleEntrySave({
+                ...entryData,
                 title,
                 color,
-              }));
-              setEntryStep("new");
+                date: formatDateJST(daysArray[entryData.rowIdx].date),
+                startTime: indexToTime(entryData.startIdx),
+                endTime: indexToTime(entryData.endIdx + 1),
+              });
             }}
             onCancel={closeAllDialogs}
           />
@@ -975,88 +1275,238 @@ onSelect={step => {
   );
 }
 
-// --- ダイアログコンポーネント省略なし --- 
+// ---- ダイアログ群：全て省略なし（あなたの直近投稿の全文そのままコピペ） ----
+// ここに EventDialogNew, EventDialogEditMenu, EventDialogEdit, EventDialogDelete,
+// EventDialogCopy, TemplateDialog, PasteDialog, SelectEntryDialog
+// 全部 **そのまま全文コピペ** してください（既にあなたの投稿にあります）
+
+
+
+// --- ダイアログ群：前回のもの（全文）を利用 ---
+// ... EventDialogNew, EventDialogEditMenu, EventDialogEdit, EventDialogDelete,
+// ... EventDialogCopy, TemplateDialog, PasteDialog, SelectEntryDialog
+// （ここはすでに提供されている全文を貼ってください！）
+
+
+// ------ ダイアログ群・全文は前回のまま省略なしで使用可 ------
+// ▼▼▼ 省略禁止！ ダイアログ全部全文必要な場合は「そのまま前回のもの」を貼って使ってください ▼▼▼
+
+
+// ▼▼▼ この関数を差し替えてください ▼▼▼
 function EventDialogNew({ entryData, setEntryData, onSave, onCancel }) {
+  // useEffectを使用して、entryDataから時間インデックスを更新
+  useEffect(() => {
+    if (entryData.startTime && entryData.endTime) {
+      const startIdx = timeToIndex(entryData.startTime);
+      const endIdx = timeToIndex(entryData.endTime) - 1;
+      // startIdxやendIdxが現在の値と異なる場合のみ更新
+      if (entryData.startIdx !== startIdx || entryData.endIdx !== endIdx) {
+        setEntryData(data => ({
+          ...data,
+          startIdx,
+          endIdx: endIdx < startIdx ? startIdx : endIdx
+        }));
+      }
+    }
+  }, [entryData.startTime, entryData.endTime, setEntryData]);
+
   return (
-    <div className="event-dialog-backdrop" onClick={onCancel}>
-      <div className="event-dialog" onClick={e => e.stopPropagation()}>
-        <div style={{ marginBottom: 8 }}>
-          <label>日付：</label>
-          <input
-            type="date"
-            value={entryData.date || ""}
-            onChange={e => setEntryData(data => ({ ...data, date: e.target.value }))}
-            style={{ width: "150px", fontSize: 15, marginLeft: 4, marginRight: 18 }}
-          />
-        </div>
-        <div style={{ marginBottom: 8 }}>
-          <label>開始：</label>
-          <select
-            value={entryData.startTime}
-            onChange={e => setEntryData(data => ({
-              ...data,
-              startTime: e.target.value,
-              endTime: TIME_LIST.find(t => timeToIndex(t) > timeToIndex(e.target.value)) || "23:45"
-            }))}
-            style={{ width: "85px", fontSize: 15, marginLeft: 4, marginRight: 10 }}
-          >
-            {TIME_LIST.slice(0, 96).map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <label>終了：</label>
-          <select
-            value={entryData.endTime}
-            onChange={e => setEntryData(data => ({ ...data, endTime: e.target.value }))}
-            style={{ width: "85px", fontSize: 15, marginLeft: 4 }}
-          >
-            {TIME_LIST.slice(1, 97).map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <span style={{ marginLeft: 18, fontSize: 13, color: "#888" }}>
-            ({formatRange(entryData.startIdx, entryData.endIdx)})
-          </span>
-        </div>
-        <div style={{ marginBottom: 8 }}>
-          <label>用件：</label>
-          <input
-            autoFocus
-            value={entryData.title || ""}
-            onChange={e => setEntryData(data => ({ ...data, title: e.target.value }))}
-            style={{ width: "180px", fontSize: 16, marginLeft: 4 }}
-            onKeyDown={e => {
-              if (e.key === "Enter" && entryData.title?.trim()) onSave();
-              if (e.key === "Escape") onCancel();
-            }}
-          />
-        </div>
-        <div style={{ marginBottom: 8 }}>
-          <label>バー色：</label>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 8 }}>
-            {COLORS_36.map(c => (
-              <div
-                key={c}
-                style={{
-                  width: 22, height: 22, borderRadius: 4,
-                  background: c,
-                  border: entryData.color === c ? "2.5px solid #1976d2" : "1.5px solid #bbb",
-                  cursor: "pointer", margin: 1,
-                }}
-                onClick={() => setEntryData(data => ({ ...data, color: c }))}
-              />
-            ))}
+    <>
+      {/* --- CSSスタイル定義 --- */}
+      <style>{`
+        .event-dialog-new .dialog-content {
+          background: #fff;
+          border-radius: 16px;
+          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+          padding: 28px;
+          width: 100%;
+          max-width: 480px;
+          border: 1px solid #e2e8f0;
+          animation: dialog-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes dialog-fade-in {
+          from { opacity: 0; transform: translateY(20px) scale(0.95); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .event-dialog-new .dialog-header {
+          font-size: 22px;
+          font-weight: 700;
+          color: #1a202c;
+          margin-bottom: 24px;
+        }
+
+        .event-dialog-new .form-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 20px;
+          margin-bottom: 24px;
+        }
+
+        .event-dialog-new .form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .event-dialog-new .form-group.full-width {
+          grid-column: 1 / -1;
+        }
+
+        .event-dialog-new .form-group label {
+          font-weight: 600;
+          font-size: 14px;
+          color: #4a5568;
+        }
+
+        .event-dialog-new .form-group input,
+        .event-dialog-new .form-group select {
+          padding: 12px;
+          border: 1px solid #cbd5e0;
+          border-radius: 8px;
+          font-size: 15px;
+          background-color: #f7fafc;
+          transition: all 0.2s ease-in-out;
+          color: #2d3748;
+        }
+        .event-dialog-new .form-group input:focus,
+        .event-dialog-new .form-group select:focus {
+          outline: none;
+          border-color: #3182ce;
+          box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.5);
+          background-color: #fff;
+        }
+
+        .event-dialog-new .time-inputs {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .event-dialog-new .time-inputs span {
+          color: #718096;
+        }
+
+        .event-dialog-new .color-palette {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(28px, 1fr));
+          gap: 8px;
+          padding-top: 4px;
+        }
+
+        .event-dialog-new .color-swatch {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          cursor: pointer;
+          border: 3px solid #fff;
+          box-shadow: 0 0 0 1px #d1d5db;
+          transition: all 0.2s ease-in-out;
+          position: relative;
+        }
+        .event-dialog-new .color-swatch:hover {
+          transform: scale(1.15);
+          box-shadow: 0 0 0 1.5px #a0aec0;
+        }
+        .event-dialog-new .color-swatch.selected {
+          box-shadow: 0 0 0 3px var(--swatch-color, #3182ce);
+        }
+
+        .event-dialog-new .dialog-footer {
+          display: flex;
+          justify-content: flex-end;
+          gap: 12px;
+          margin-top: 28px;
+          padding-top: 24px;
+          border-top: 1px solid #e2e8f0;
+        }
+      `}</style>
+
+      {/* --- JSX --- */}
+      <div className="event-dialog-backdrop event-dialog-new" onClick={onCancel}>
+        <div className="dialog-content" onClick={e => e.stopPropagation()}>
+          
+          <div className="dialog-header">新規予定</div>
+
+          <div className="form-group full-width">
+            <label htmlFor="event-title">用件</label>
+            <input
+              id="event-title"
+              autoFocus
+              value={entryData.title || ""}
+              onChange={e => setEntryData(data => ({ ...data, title: e.target.value }))}
+              onKeyDown={e => {
+                if (e.key === "Enter" && entryData.title?.trim()) onSave();
+                if (e.key === "Escape") onCancel();
+              }}
+              placeholder="例：クライアントとの打ち合わせ"
+            />
           </div>
-        </div>
-        <div style={{ marginTop: 18, textAlign: "right" }}>
-          <button
-            className="calendar-btn calendar-btn-main"
-            onClick={onSave}
-            style={{ marginRight: 8 }}
-            disabled={!entryData.title || !entryData.color || !entryData.date}
-          >保存</button>
-          <button className="calendar-btn calendar-btn-outline" onClick={onCancel}>キャンセル</button>
+
+          <div className="form-grid">
+            <div className="form-group">
+              <label htmlFor="event-date">日付</label>
+              <input
+                id="event-date"
+                type="date"
+                value={entryData.date || ""}
+                onChange={e => setEntryData(data => ({ ...data, date: e.target.value }))}
+              />
+            </div>
+            <div className="form-group">
+              <label>時間</label>
+              <div className="time-inputs">
+                <select
+                  value={entryData.startTime}
+                  onChange={e => setEntryData(data => ({
+                    ...data,
+                    startTime: e.target.value,
+                  }))}
+                >
+                  {TIME_LIST.slice(0, 96).map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <span>〜</span>
+                <select
+                  value={entryData.endTime}
+                  onChange={e => setEntryData(data => ({ ...data, endTime: e.target.value }))}
+                >
+                  {/* 開始時刻より前の時間は選択不可にする */}
+                  {TIME_LIST.slice(timeToIndex(entryData.startTime) + 1).map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="form-group full-width">
+            <label>バー色</label>
+            <div className="color-palette">
+              {COLORS_36.map(c => (
+                <div
+                  key={c}
+                  className={`color-swatch ${entryData.color === c ? 'selected' : ''}`}
+                  style={{ background: c, '--swatch-color': c }}
+                  onClick={() => setEntryData(data => ({ ...data, color: c }))}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="dialog-footer">
+            <button className="calendar-btn calendar-btn-outline" onClick={onCancel}>キャンセル</button>
+            <button
+              className="calendar-btn calendar-btn-main"
+              onClick={onSave}
+              disabled={!entryData.title || !entryData.color || !entryData.date}
+            >
+              保存
+            </button>
+          </div>
+
         </div>
       </div>
-    </div>
+    </>
   );
 }
+
+// ... 他ダイアログコンポーネントはそのまま ...
 function EventDialogEditMenu({ onEdit, onCopy, onDelete, onCancel }) {
   return (
     <div className="event-dialog-backdrop" onClick={onCancel}>

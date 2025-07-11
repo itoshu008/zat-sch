@@ -44,7 +44,6 @@ function getNowCellIndex() {
   const now = new Date();
   return now.getHours() * 4 + Math.floor(now.getMinutes() / 15);
 }
-// 重複判定ロジック
 function isEventOverlapping(evt, allEvents) {
   const evtStart = Number(evt.startIdx);
   const evtEnd = Number(evt.endIdx) + 1;
@@ -57,27 +56,26 @@ function isEventOverlapping(evt, allEvents) {
   });
 }
 
+// ------------------ CalendarDayコンポーネント本体 ------------------
 export default function CalendarDay({
   groups, users, currentGroup, onChangeGroup,
   currentDate, setCurrentDate, handlePrevDate, handleNextDate, handleNowDate
 }) {
-  // ★ レスポンシブサイズ用ステート
+  // ★ 完全レスポンシブなcellSize
   const [cellSize, setCellSize] = useState(() => {
-    const isMobile = window.innerWidth < 600;
-    return {
-      cellWidth: isMobile ? 34 : 25,
-      rowHeight: isMobile ? 44 : 38,
-      userColWidth: isMobile ? 88 : 120
-    };
+    const w = window.innerWidth;
+    if (w < 500) return { cellWidth: 14, rowHeight: 22, userColWidth: 36 };
+    if (w < 700) return { cellWidth: 21, rowHeight: 30, userColWidth: 54 };
+    if (w < 900) return { cellWidth: 27, rowHeight: 38, userColWidth: 90 };
+    return { cellWidth: 25, rowHeight: 38, userColWidth: 120 };
   });
   useEffect(() => {
     function handleResize() {
-      const isMobile = window.innerWidth < 600;
-      setCellSize({
-        cellWidth: isMobile ? 34 : 25,
-        rowHeight: isMobile ? 44 : 38,
-        userColWidth: isMobile ? 88 : 120
-      });
+      const w = window.innerWidth;
+      if (w < 500) setCellSize({ cellWidth: 14, rowHeight: 22, userColWidth: 36 });
+      else if (w < 700) setCellSize({ cellWidth: 21, rowHeight: 30, userColWidth: 54 });
+      else if (w < 900) setCellSize({ cellWidth: 27, rowHeight: 38, userColWidth: 90 });
+      else setCellSize({ cellWidth: 25, rowHeight: 38, userColWidth: 120 });
     }
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
