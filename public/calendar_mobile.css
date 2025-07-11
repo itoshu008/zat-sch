@@ -1,0 +1,107 @@
+/* スマートフォン版 (700px以下) */
+@media (max-width: 700px) {
+  :root {
+    --cell-width-mobile: 10px;
+    --row-height-mobile: 16px;
+    --usercol-width-mobile: 36px;
+  }
+
+  html, body, #root {
+    font-size: 12px;
+  }
+
+  .header-buttons-row,
+  .group-tab-row,
+  .calendar-toolbar-row,
+  .toolbar-month-bar {
+    padding: 4px 5px;
+    gap: 3px;
+    flex-direction: column;
+    justify-content: flex-start;
+  }
+
+  .nav-btn {
+    font-size: 13px;
+    padding: 4px 8px;
+    border-radius: 8px;
+  }
+
+  .group-tab-btn,
+  .toolbar-group-btn,
+  .calendar-btn,
+  .toolbar-btn,
+  .toolbar-user-select {
+    font-size: 10px;
+    padding: 2px 4px;
+    border-radius: 5px;
+    min-width: auto;
+  }
+
+  .toolbar-ym-label,
+  .group-tab-label {
+    font-size: 11px;
+  }
+
+  .calendar-th,
+  .calendar-th-hour,
+  th, td, .calendar-td {
+    width: var(--cell-width-mobile) !important;
+    min-width: var(--cell-width-mobile) !important;
+    max-width: var(--cell-width-mobile) !important;
+    height: var(--row-height-mobile) !important;
+    font-size: 9px !important;
+  }
+
+  .calendar-user-cell,
+  .calendar-th-sticky-left,
+  .calendar-th-sticky-corner {
+    width: var(--usercol-width-mobile) !important;
+    min-width: var(--usercol-width-mobile) !important;
+    max-width: var(--usercol-width-mobile) !important;
+    font-size: 9px !important;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    letter-spacing: 1px;
+  }
+
+  .event-bar-inner {
+    height: calc(var(--row-height-mobile) - 3px);
+    font-size: 9px;
+  }
+
+  .event-dialog, .modal-content {
+    padding: 8px 10px;
+    min-width: 120px;
+    font-size: 10px;
+  }
+
+  .calendar-scrollbox::-webkit-scrollbar {
+    display: none; /* スクロールバー非表示 */
+  }
+
+  .calendar-month-scroll,
+  .calendar-table-scroll,
+  .calendar-wrap,
+  .calendar-table {
+    overflow-x: auto;
+  }
+
+  table.calendar-table {
+    min-width: 1100px; /* 横スクロール必要な最小幅 */
+    max-width: none;
+    width: auto;
+  }
+
+  .header-buttons-row,
+  .calendar-header-bar {
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .event-bar-inner span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 2px;
+  }
+}
