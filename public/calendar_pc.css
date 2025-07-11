@@ -1,5 +1,5 @@
-/* ==========================================================================
-   1. 基本設定（リセット & 全体共通）
+/* ========================================================================== 
+   1. 基本設定（リセット & 全体共通） 
    ========================================================================== */
 html, body, #root {
   height: 100vh;
@@ -13,8 +13,8 @@ html, body, #root {
   touch-action: manipulation;
 }
 
-/* ==========================================================================
-   2. レイアウト & スクロール
+/* ========================================================================== 
+   2. レイアウト & スクロール 
    ========================================================================== */
 /* --- スクロールコンテナ --- */
 .outer-scrollbox,
@@ -59,8 +59,8 @@ html, body, #root {
   background: linear-gradient(90deg, #1976d2 60%, #42a5f5 100%);
 }
 
-/* ==========================================================================
-   3. ヘッダー & ツールバー
+/* ========================================================================== 
+   3. ヘッダー & ツールバー 
    ========================================================================== */
 /* --- Stickyヘッダー --- */
 .sticky-header-1, .sticky-header {
@@ -234,8 +234,8 @@ html, body, #root {
   letter-spacing: 1px;
 }
 
-/* ==========================================================================
-   4. カレンダー本体
+/* ========================================================================== 
+   4. カレンダー本体 
    ========================================================================== */
 /* --- 基本構造 --- */
 .calendar-wrap {
@@ -276,8 +276,8 @@ th, td {
 }
 .calendar-th-hour { color: #1565c0; }
 .calendar-th-sticky-corner {
-  position: sticky !important; left: 0; top: 0; z-index: 20;
-  background: #f5f7fa;
+  position: sticky !important; left: 0; top: 0; z-index: 51 !important;
+  background: #f5f7fa !important;
   width: 52px; min-width: 48px; max-width: 52px;
   border-right: 1px solid #ccc;
   border-bottom: 1px solid #bbb;
@@ -289,8 +289,8 @@ th, td {
   border-bottom: 1px solid #bbb;
 }
 .calendar-th-sticky-left {
-  position: sticky !important; left: 0; z-index: 10;
-  background: #fff;
+  position: sticky !important; left: 0; z-index: 51 !important;
+  background: #fff !important;
   width: 52px; min-width: 48px; max-width: 52px;
   border-right: 1px solid #bbb;
   border-bottom: 1px solid #eee;
@@ -299,7 +299,7 @@ th, td {
 
 /* --- データセル (TD) --- */
 .calendar-user-cell {
-  position: sticky; left: 0; z-index: 4;
+  position: sticky; left: 0; z-index: 51 !important;
   width: 70px !important; min-width: 70px !important; max-width: 78px !important;
   background: #fafbfc !important;
   border-right: 1px solid #bbb !important;
@@ -308,45 +308,19 @@ th, td {
   text-align: right;
   vertical-align: middle;
 }
-.calendar-date-label, .date-label-cell {
-  background: #fafbff;
-  font-weight: bold;
-  text-align: center;
-  font-size: 13px;
-  border: 1px solid #bbb;
-  min-width: 40px;
-  max-width: 90px;
-  color: #444;
-  vertical-align: middle;
-  padding: 0 !important;
-}
-.calendar-date-label.saturday, .date-label-cell.saturday { color: #1976d2; }
-.calendar-date-label.sunday, .date-label-cell.sunday, .calendar-date-label.holiday, .date-label-cell.holiday { color: #e53935; }
-.calendar-holiday-label {
-  font-size: 11px;
-  margin-left: 1px;
-  color: #e53935;
-  font-weight: 400;
-}
-.calendar-td {
-  width: 18px !important; min-width: 18px !important; max-width: 18px !important;
-  height: 28px !important;
-  border-right: 1px solid #eee !important;
-  border-bottom: 1px solid #eee !important;
-  background: #fff;
-  text-align: center;
-  position: relative;
-}
-.calendar-td.selected-td { background: #b2ebf2 !important; }
 
 /* --- イベントバー & リサイズハンドル --- */
+.event-bar,
+.event-bar-inner {
+  z-index: 9 !important;
+}
+
 .event-bar-inner {
   width: 100%;
   height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 5;
 }
 .event-bar-inner.month { height: 16px; }
 .resize-handle {
@@ -355,8 +329,8 @@ th, td {
 .resize-handle.left { left: 0; cursor: ew-resize; }
 .resize-handle.right { right: 0; cursor: ew-resize; }
 
-/* ==========================================================================
-   5. ダイアログ & モーダル
+/* ========================================================================== 
+   5. ダイアログ & モーダル 
    ========================================================================== */
 .event-dialog-backdrop, .modal-backdrop {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 2000;
@@ -384,13 +358,12 @@ th, td {
   padding: 16px 20px 14px 20px;
 }
 
-/* ==========================================================================
-   6. レスポンシブデザイン（スマホ/タブレット）
+/* ========================================================================== 
+   6. レスポンシブデザイン（スマホ/タブレット） 
    ========================================================================== */
 
 /* --- タブレット / 小型PC向け (〜900px) --- */
 @media (max-width: 900px) {
-  /* --- 基本設定 & レイアウト --- */
   html, body, #root { font-size: 15px !important; }
   .outer-scrollbox,
   .calendar-month-scroll,
@@ -409,8 +382,6 @@ th, td {
     border-width: 0 !important;
     box-shadow: none !important;
   }
-  
-  /* --- ヘッダー & ツールバー --- */
   .header-buttons-row, .group-tab-row, .calendar-toolbar-row, .toolbar-month-bar {
     flex-wrap: wrap !important;
     gap: 4px !important;
@@ -425,31 +396,28 @@ th, td {
     margin: 2px !important;
     height: auto !important;
   }
-
-  /* --- カレンダー本体 --- */
   .calendar-th, .calendar-th-hour, th, td, .calendar-td {
     font-size: 11px !important;
     width: 13px !important; min-width: 12px !important; max-width: 14px !important;
     height: 18px !important;
     padding: 0 !important;
   }
-  /* ▼▼▼ 修正を追記 ▼▼▼ */
   .event-bar, .event-bar-inner {
     height: 18px !important;
     min-height: 18px !important;
+    z-index: 9 !important;
   }
-  /* ▲▲▲ 修正を追記 ▲▲▲ */
   .calendar-th-sticky-corner, .calendar-th-sticky-left, .calendar-user-cell {
     width: 28px !important; min-width: 22px !important; max-width: 32px !important;
     font-size: 11px !important;
+    z-index: 51 !important;
+    background: #fafbfc !important;
   }
   .calendar-date-label, .date-label-cell {
     font-size: 10px !important;
     min-width: 14px !important; max-width: 26px !important;
     padding: 0 !important;
   }
-  
-  /* --- ダイアログ & その他 --- */
   .event-dialog, .event-dialog-new, .modal-content {
     max-width: 98vw !important; min-width: 0 !important;
     padding: 8px 2vw !important;
@@ -476,11 +444,17 @@ th, td {
     margin: 0 auto !important;
     left: 0 !important; right: 0 !important;
   }
+  .event-bar, .event-bar-inner {
+    z-index: 9 !important;
+  }
+  .calendar-user-cell, .calendar-th-sticky-left, .calendar-th-sticky-corner {
+    z-index: 51 !important;
+    background: #fafbfc !important;
+  }
 }
 
 /* --- スマートフォン向け・超狭画面対応 (〜520px) --- */
 @media (max-width: 520px) {
-  /* --- 全体 & 横スクロール設定 --- */
   html, body, #root {
     font-size: 11px !important;
     width: 100vw !important; min-width: 0 !important;
@@ -490,14 +464,12 @@ th, td {
     overflow-x: auto !important;
   }
   table.calendar-table {
-    min-width: 1100px !important; /* 96分割(15分)×約11px + α を確保 */
+    min-width: 1100px !important;
     max-width: none !important; width: auto !important;
   }
   .header-buttons-row, .calendar-header-bar {
     overflow-x: auto !important; white-space: nowrap !important;
   }
-  
-  /* --- カレンダーのセルを極小化 --- */
   .calendar-th, .calendar-th-hour, th, td, .calendar-td {
     font-size: 10px !important;
     width: 10px !important; min-width: 8px !important; max-width: 11px !important;
@@ -510,20 +482,21 @@ th, td {
     writing-mode: vertical-rl !important;
     text-orientation: mixed !important;
     letter-spacing: 1px !important;
+    z-index: 51 !important;
+    background: #fafbfc !important;
   }
   .calendar-date-label, .date-label-cell {
     font-size: 9px !important;
     min-width: 13px !important; max-width: 18px !important;
     overflow: hidden !important; white-space: nowrap !important;
   }
-
-  /* --- イベントバー --- */
   .event-bar, .event-bar-inner {
     min-height: 12px !important; height: 13px !important;
     font-size: 9px !important;
     border-radius: 4px !important;
     padding: 0 1px !important;
     overflow: hidden !important;
+    z-index: 9 !important;
   }
   .event-bar span, .event-bar-inner span {
     font-size: 9px !important;
@@ -532,8 +505,6 @@ th, td {
     text-overflow: ellipsis !important;
     padding: 0 2px !important;
   }
-  
-  /* --- ボタン類 --- */
   .calendar-header-bar, .header-buttons-row, .group-tab-row, .calendar-toolbar-row {
     gap: 3px !important;
     padding: 3px 1px !important;
@@ -547,8 +518,6 @@ th, td {
     min-width: 1em !important;
     height: auto !important;
   }
-  
-  /* --- その他 --- */
   .color-swatch {
     width: 17px !important; height: 17px !important;
     min-width: 14px !important; min-height: 14px !important;
