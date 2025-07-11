@@ -911,7 +911,7 @@ useEffect(() => {
             fontSize: 15,
             position: "sticky",
             left: 0,
-            zIndex: 10,
+            zIndex: 15,
             textAlign: "center",
             padding: 0,
             borderTop: "1px solid #eee",
