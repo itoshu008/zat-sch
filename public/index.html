@@ -15,21 +15,20 @@
     <link rel="apple-touch-icon" sizes="180x180" href="%PUBLIC_URL%/apple-touch-icon.png" />
     <link rel="apple-touch-icon" sizes="192x192" href="%PUBLIC_URL%/logo192.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <!-- Google Fonts 例（不要なら削除） -->
-    <!-- <link href="https://fonts.googleapis.com/css?family=Roboto:400,500&display=swap" rel="stylesheet"> -->
-    <!-- OGP（SNSシェア用） -->
+    
     <meta property="og:title" content="ZAT 社員用スケジュール" />
     <meta property="og:description" content="ZAT社員専用のクラウドスケジュールアプリ（PC/スマホ両対応）" />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="%PUBLIC_URL%/ogp.png" />
     <meta property="og:url" content="https://zat-sch.vercel.app/" />
-    <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <!-- ここにGoogle Analyticsなどのタグを追加する場合は下に追記 -->
+
+    <link rel="stylesheet" href="/calendar_pc.css" />
+<link rel="stylesheet" media="screen and (max-width: 900px)" href="/calendar_tablet.css" />
+<link rel="stylesheet" media="screen and (max-width: 700px)" href="/calendar_mobile.css" />
   </head>
   <body>
     <noscript>このアプリのご利用にはJavaScriptが必要です。</noscript>
     <div id="root"></div>
-    <!-- 開発モードで直接ブラウザ表示の場合は空白です。ビルド時にReactアプリ本体がここに挿入されます -->
   </body>
 </html>
