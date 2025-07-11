@@ -508,17 +508,17 @@ th, td {
 /* --- スマホ縦・超狭い画面 --- */
 @media (max-width: 520px) {
   .calendar-th, .calendar-th-hour, th, td, .calendar-td {
-    font-size: 10px !important;
-    min-width: 8px !important;
-    max-width: 10px !important;
-    width: 9px !important;
-    height: 16px !important;
+    font-size: 13px !important;
+    min-width: 28px !important;
+    max-width: 32px !important;
+    width: 30px !important;
+    height: 36px !important;
   }
   .calendar-th-sticky-corner, .calendar-th-sticky-left, .calendar-user-cell {
-    min-width: 14px !important;
-    max-width: 22px !important;
-    width: 17px !important;
-    font-size: 10px !important;
+    min-width: 35px !important;
+    max-width: 44px !important;
+    width: 40px !important;
+    font-size: 13px !important;
   }
 }
 
